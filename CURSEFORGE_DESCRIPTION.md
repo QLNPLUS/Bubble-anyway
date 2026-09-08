@@ -1,14 +1,19 @@
 # Bubble Anyway
 
-Bubble Anyway is a universal information notification overlay for Minecraft.
-It lets commands, server events, KubeJS, and client scripts display clear,
-customizable message bubbles above most vanilla and modded GUI screens.
+Bubble Anyway is an API-first information notification overlay for Minecraft.
+Other mods can call the provided API directly from quest completion, machine
+state changes, achievements, login events, or any other game event and display
+clear, customizable message bubbles above most vanilla and modded GUI screens.
+Commands and KubeJS are also available for integrations that do not need a
+direct Java dependency.
 
 ## Features
 
 - Display multiple bubbles at the same time, with priority, replacement, IDs,
   and per-player clearing.
-- Trigger bubbles from commands, server-side APIs, server events, KubeJS, or
+- Give other mods a direct Java API for player-specific, multi-player, and
+  server-wide notifications without executing commands.
+- Trigger bubbles from server events, commands, server-side APIs, KubeJS, or
   client-side KubeJS scripts.
 - Render over most HUD and GUI screens through a high-priority overlay layer.
 - Automatically size bubbles from their text, line breaks, wrapping, and item
@@ -29,6 +34,44 @@ customizable message bubbles above most vanilla and modded GUI screens.
 - Include two built-in nine-slice backgrounds:
   `bubble_anyway:textures/gui/background.png` and
   `bubble_anyway:textures/gui/background_modern.png`.
+
+## API For Other Mods
+
+Bubble Anyway is designed to be embedded by other mods. A mod can trigger a
+bubble directly from its own Java event handlers without constructing a command
+or requiring the player to interact with chat.
+
+The common server entry point is:
+
+```java
+import com.bubbleanyway.api.BubbleServerApi;
+
+// Call this from a server-side event, such as quest completion.
+BubbleServerApi.showJson(player,
+    "{\"id\":\"quest_complete\",\"text\":\"Quest complete!\",\"priority\":100}");
+
+// Use a local theme and only send the text when the style is predefined.
+BubbleServerApi.showTheme(player, "my_mod:quest_notice", "Quest complete!");
+```
+
+Available server-side integration methods include:
+
+- `show(player, spec)` and `show(players, spec)`
+- `showJson(player, json)` and `showJson(players, json)`
+- `showAll(server, spec)` and `showAllJson(server, json)`
+- `showTheme(player, themeId, text)` and `showThemeJson(player, themeId, overridesJson)`
+- `showAllTheme(server, themeId, text)` and `showAllThemeJson(server, themeId, overridesJson)`
+- `clear(player)`, `clear(players)`, and `clearAll(server)`
+
+These APIs allow an addon mod to decide when a notification appears while
+Bubble Anyway handles layout, animation, text formatting, icons, sounds,
+themes, and delivery to the client. Theme-based calls also avoid repeating a
+large style JSON object for every event.
+
+For KubeJS integrations, use `BubbleKubeJSServerApi` on the server or
+`BubbleKubeJSBindings` on the client. This makes Bubble Anyway useful as a
+shared notification service for quest, progression, economy, machine, and
+content mods.
 
 ## Supported Versions
 
