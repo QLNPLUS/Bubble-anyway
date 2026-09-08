@@ -84,13 +84,13 @@ content mods.
 | Fabric | 1.20.1 |
 | Fabric | 1.21.1 |
 
-All included targets are version `1.0.0`. Install the file matching both your
+All included targets are version `1.0.1`. Install the file matching both your
 Minecraft version and mod loader.
 
 ## Command Example
 
 ```text
-/bubble show @a {"theme":"bubble_anyway:defualt","text":"Welcome to the server\nHave fun!"}
+/bubble show @a {"theme":"bubble_anyway:default","text":"Welcome to the server\nHave fun!"}
 ```
 
 The legacy JSON form is also supported:
@@ -112,7 +112,7 @@ const BubbleAnyway = Java.loadClass('com.bubbleanyway.kubejs.BubbleKubeJSBinding
 
 BubbleAnyway.showJson(JSON.stringify({
   id: 'local_notice',
-  theme: 'bubble_anyway:defualt',
+  theme: 'bubble_anyway:default',
   text: 'Client KubeJS is ready\nThis bubble is local only.'
 }));
 ```
@@ -127,7 +127,7 @@ const BubbleServer = Java.loadClass('com.bubbleanyway.kubejs.BubbleKubeJSServerA
 PlayerEvents.loggedIn(event => {
   BubbleServer.showJson(event.player, JSON.stringify({
     id: 'welcome',
-    theme: 'bubble_anyway:defualt',
+    theme: 'bubble_anyway:default',
     text: 'Welcome back!'
   }));
 });
@@ -141,7 +141,7 @@ of players, or everyone on the server.
 ```json
 {
   "id": "quest_complete",
-  "theme": "bubble_anyway:morden",
+  "theme": "bubble_anyway:modern",
   "text": "Quest complete!\nYou received a diamond.",
   "icon": "minecraft:diamond",
   "iconSize": 16,

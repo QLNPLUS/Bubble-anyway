@@ -1,3 +1,7 @@
+## 1.0.1
+
+- Fixed the built-in theme IDs to `bubble_anyway:default` and `bubble_anyway:modern`.
+
 ## 1.0.0
 
 - Added Fabric 1.21.1 support with HUD and screen-render overlay hooks.

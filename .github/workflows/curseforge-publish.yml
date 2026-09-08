@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Git tag to build and publish, for example v1.0.0
+        description: Git tag to build and publish, for example v1.0.1
         required: true
         type: string
       target:
