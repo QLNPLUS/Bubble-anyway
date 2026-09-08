@@ -1,6 +1,6 @@
 {
   "themes": {
-    "bubble_anyway:defualt": {
+    "bubble_anyway:default": {
       "textColor": "#555555",
       "background": "bubble_anyway:textures/gui/background.png",
       "backgroundBorder": 8,
@@ -15,7 +15,7 @@
       "priority": 200,
       "shadow": false
     },
-    "bubble_anyway:morden": {
+    "bubble_anyway:modern": {
       "textColor": "#555555",
       "background": "bubble_anyway:textures/gui/background_modern.png",
       "backgroundBorder": 8,
