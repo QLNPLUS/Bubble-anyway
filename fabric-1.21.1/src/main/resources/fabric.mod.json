@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "Bubble Anyway Contributors"
+  ],
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.bubbleanyway.BubbleAnyway"
+    ],
+    "client": [
+      "com.bubbleanyway.client.BubbleAnywayClient"
+    ]
+  },
+  "mixins": [
+    "bubble_anyway.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.5",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": ">=0.116.17"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "textColor": "#FFFFFFFF",
+  "background": "bubble_anyway:textures/gui/background.png",
+  "backgroundBorder": 8,
+  "backgroundGuide": 1,
+  "padding": 12,
+  "textAlign": "CENTER",
+  "anchor": "CENTER_TOP",
+  "y": 18,
+  "animation": "SLIDE_FROM_TOP",
+  "fadeIn": 8,
+  "fadeOut": 12,
+  "duration": 100,
+  "priority": 100,
+  "replace": true
+}

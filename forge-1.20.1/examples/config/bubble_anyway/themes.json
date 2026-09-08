@@ -1,0 +1,30 @@
+{
+  "themes": {
+    "bubble_anyway:warning": {
+      "textColor": "#FFFFFFFF",
+      "backgroundColor": "#D9A83232",
+      "padding": 10,
+      "anchor": "CENTER_TOP",
+      "y": 18,
+      "animation": "SLIDE_FROM_TOP",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "duration": 100,
+      "priority": 200,
+      "replace": true
+    },
+    "bubble_anyway:success": {
+      "textColor": "#FFFFFFFF",
+      "backgroundColor": "#D92E8B57",
+      "padding": 10,
+      "anchor": "CENTER_BOTTOM",
+      "y": 24,
+      "animation": "SLIDE_FROM_BOTTOM",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "duration": 100,
+      "priority": 150,
+      "replace": true
+    }
+  }
+}

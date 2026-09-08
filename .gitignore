@@ -1,0 +1,23 @@
+# Build and runtime output from each loader/version project
+**/build/
+**/run/
+**/.gradle/
+
+# IDE and local tooling metadata
+**/.idea/
+**/.vscode/
+**/*.iml
+**/.classpath
+**/.project
+**/.settings/
+
+# Preserve the source repository as a clean monorepo. The existing version
+# directories may contain worktree metadata from their template repositories.
+**/.git
+**/.git/
+
+# Local logs and generated archives
+**/*.log
+**/logs/
+**/*.class
+*.zip

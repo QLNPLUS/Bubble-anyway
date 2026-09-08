@@ -1,0 +1,34 @@
+{
+  "themes": {
+    "bubble_anyway:defualt": {
+      "textColor": "#555555",
+      "background": "bubble_anyway:textures/gui/background.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "CENTER_TOP",
+      "y": 18,
+      "animation": "SLIDE_FROM_TOP",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "duration": 60,
+      "priority": 200,
+      "shadow": false
+    },
+    "bubble_anyway:morden": {
+      "textColor": "#555555",
+      "background": "bubble_anyway:textures/gui/background_modern.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "CENTER_TOP",
+      "y": 18,
+      "animation": "SLIDE_FROM_TOP",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "duration": 60,
+      "priority": 200,
+      "shadow": false
+    }
+  }
+}
