@@ -1,0 +1,175 @@
+name: Publish mod to CurseForge
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Git tag to build and publish, for example v1.0.0
+        required: true
+        type: string
+      target:
+        description: Publish all targets or retry one target
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - forge-1.19.2
+          - forge-1.20.1
+          - neoforge-1.21.1
+          - neoforge-26.1.2
+          - fabric-1.20.1
+          - fabric-1.21.1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curseforge-${{ github.repository }}-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}-${{ inputs.target || 'all' }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Select publish targets
+        id: matrix
+        env:
+          TARGET: ${{ inputs.target || 'all' }}
+        shell: bash
+        run: |
+          case "$TARGET" in
+            all|"")
+              matrix='{"include":[{"target":"forge-1.19.2","path":"forge-1.19.2","loader":"forge","game_version":"1.19.2","java":"17"},{"target":"forge-1.20.1","path":"forge-1.20.1","loader":"forge","game_version":"1.20.1","java":"17"},{"target":"neoforge-1.21.1","path":"neoforge-1.21.1","loader":"neoforge","game_version":"1.21.1","java":"21"},{"target":"neoforge-26.1.2","path":"neoforge-1.26.1.2","loader":"neoforge","game_version":"26.1.2","java":"25"},{"target":"fabric-1.20.1","path":"fabric-1.20.1","loader":"fabric","game_version":"1.20.1","java":"17"},{"target":"fabric-1.21.1","path":"fabric-1.21.1","loader":"fabric","game_version":"1.21.1","java":"21"}]}'
+              ;;
+            forge-1.19.2)
+              matrix='{"include":[{"target":"forge-1.19.2","path":"forge-1.19.2","loader":"forge","game_version":"1.19.2","java":"17"}]}'
+              ;;
+            forge-1.20.1)
+              matrix='{"include":[{"target":"forge-1.20.1","path":"forge-1.20.1","loader":"forge","game_version":"1.20.1","java":"17"}]}'
+              ;;
+            neoforge-1.21.1)
+              matrix='{"include":[{"target":"neoforge-1.21.1","path":"neoforge-1.21.1","loader":"neoforge","game_version":"1.21.1","java":"21"}]}'
+              ;;
+            neoforge-26.1.2)
+              matrix='{"include":[{"target":"neoforge-26.1.2","path":"neoforge-1.26.1.2","loader":"neoforge","game_version":"26.1.2","java":"25"}]}'
+              ;;
+            fabric-1.20.1)
+              matrix='{"include":[{"target":"fabric-1.20.1","path":"fabric-1.20.1","loader":"fabric","game_version":"1.20.1","java":"17"}]}'
+              ;;
+            fabric-1.21.1)
+              matrix='{"include":[{"target":"fabric-1.21.1","path":"fabric-1.21.1","loader":"fabric","game_version":"1.21.1","java":"21"}]}'
+              ;;
+            *)
+              echo "Unknown target: $TARGET" >&2
+              exit 1
+              ;;
+          esac
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Java ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare release version
+        shell: bash
+        run: |
+          version="${RELEASE_VERSION#v}"
+          test -n "$version"
+          echo "CURSEFORGE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Validate project version
+        working-directory: ${{ matrix.path }}
+        shell: bash
+        run: |
+          project_version="$(sed -n 's/^mod_version=//p' gradle.properties | head -n 1)"
+          test -n "$project_version"
+          test "$project_version" = "$CURSEFORGE_VERSION"
+
+      - name: Validate CurseForge configuration
+        env:
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        shell: bash
+        run: |
+          test -n "$CURSEFORGE_PROJECT_ID"
+          test -n "$CURSEFORGE_TOKEN"
+
+      - name: Build ${{ matrix.target }}
+        working-directory: ${{ matrix.path }}
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
+
+      - name: Verify and normalize release artifact
+        working-directory: ${{ matrix.path }}
+        shell: bash
+        run: |
+          project_jar="build/libs/bubble_anyway-${CURSEFORGE_VERSION}.jar"
+          find build/libs -maxdepth 1 -type f -name '*.jar' -print
+          test -f "$project_jar"
+
+          artifact="bubble-anyway-${{ matrix.loader }}-${{ matrix.game_version }}-${CURSEFORGE_VERSION}.jar"
+          mkdir -p build/curseforge
+          cp "$project_jar" "build/curseforge/$artifact"
+          echo "CURSEFORGE_FILE=${{ matrix.path }}/build/curseforge/$artifact" >> "$GITHUB_ENV"
+          echo "CURSEFORGE_NAME=${artifact%.jar}" >> "$GITHUB_ENV"
+
+      - name: Prepare current changelog section
+        working-directory: ${{ matrix.path }}
+        shell: bash
+        run: |
+          awk -v version="$CURSEFORGE_VERSION" '
+            /^##[[:space:]]+/ {
+              heading = $2
+              gsub(/^\[/, "", heading)
+              gsub(/\].*$/, "", heading)
+              if (found && heading != version) exit
+              if (heading == version) found = 1
+            }
+            found { print }
+          ' CHANGELOG.md > build/curseforge-changelog.md
+          test -s build/curseforge-changelog.md
+          echo "CURSEFORGE_CHANGELOG=${{ matrix.path }}/build/curseforge-changelog.md" >> "$GITHUB_ENV"
+
+      - name: Publish ${{ matrix.target }}
+        uses: Kira-NT/mc-publish@v3
+        with:
+          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: ${{ env.CURSEFORGE_FILE }}
+          version: ${{ env.CURSEFORGE_VERSION }}
+          name: ${{ env.CURSEFORGE_NAME }}
+          version-type: release
+          changelog-file: ${{ env.CURSEFORGE_CHANGELOG }}
+          loaders: ${{ matrix.loader }}
+          game-versions: ${{ matrix.game_version }}
+          java: ${{ matrix.java }}
