@@ -174,6 +174,8 @@ public final class BubbleOverlay {
                 graphics.pose().popPose();
                 return;
             }
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
             if (spec.backgroundBorder() > 0) {
                 renderNineSlice(graphics, texture, textureSize, layout.width, layout.height,

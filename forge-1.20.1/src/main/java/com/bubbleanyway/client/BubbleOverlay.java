@@ -180,6 +180,8 @@ public final class BubbleOverlay {
             ResourceLocation texture = prepared.texture();
             TextureSize textureSize = prepared.size();
             Minecraft.getInstance().getTextureManager().getTexture(texture).setFilter(false, false);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
             graphics.blit(texture, 0, 0, 0, 0.0F, 0.0F,
                     layout.width, layout.height, textureSize.width, textureSize.height);

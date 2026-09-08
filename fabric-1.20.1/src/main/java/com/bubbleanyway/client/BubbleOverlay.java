@@ -164,6 +164,8 @@ public final class BubbleOverlay {
                 context.getMatrices().pop();
                 return;
             }
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
             if (spec.backgroundBorder() > 0) {
                 renderNineSlice(context, texture, textureSize, layout.width(), layout.height(),

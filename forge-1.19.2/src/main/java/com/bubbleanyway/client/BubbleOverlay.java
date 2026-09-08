@@ -173,6 +173,8 @@ public final class BubbleOverlay {
                 pose.popPose();
                 return;
             }
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
             RenderSystem.setShaderTexture(0, texture);
             if (spec.backgroundBorder() > 0) {

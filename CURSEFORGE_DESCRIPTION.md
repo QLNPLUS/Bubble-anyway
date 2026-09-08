@@ -84,7 +84,7 @@ content mods.
 | Fabric | 1.20.1 |
 | Fabric | 1.21.1 |
 
-All included targets are version `1.0.1`. Install the file matching both your
+All included targets are version `1.0.2`. Install the file matching both your
 Minecraft version and mod loader.
 
 ## Command Example
