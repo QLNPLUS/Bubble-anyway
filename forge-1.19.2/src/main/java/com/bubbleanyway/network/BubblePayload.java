@@ -32,6 +32,8 @@ public final class BubblePayload {
         buffer.writeUtf(spec.id(), 128);
         buffer.writeUtf(spec.text(), 32767);
         buffer.writeUtf(spec.iconId(), 128);
+        buffer.writeUtf(spec.iconType().name(), 32);
+        buffer.writeUtf(spec.textPartsJson(), 32767);
         buffer.writeInt(spec.iconSize());
         buffer.writeInt(spec.iconGap());
         buffer.writeInt(spec.iconOffsetX());
@@ -56,6 +58,8 @@ public final class BubblePayload {
         buffer.writeInt(spec.duration());
         buffer.writeInt(spec.fadeIn());
         buffer.writeInt(spec.fadeOut());
+        buffer.writeInt(spec.slideIn());
+        buffer.writeInt(spec.slideOut());
         buffer.writeInt(spec.priority());
         buffer.writeFloat(spec.scale());
         buffer.writeBoolean(spec.bold());
@@ -75,10 +79,17 @@ public final class BubblePayload {
             return clearAll();
         }
 
+        String id = buffer.readUtf(128);
+        String text = buffer.readUtf(32767);
+        String iconId = buffer.readUtf(128);
+        BubbleSpec.IconType iconType = BubbleSpec.IconType.parse(buffer.readUtf(32));
+        String textPartsJson = buffer.readUtf(32767);
         BubbleSpec spec = new BubbleSpec(
-                buffer.readUtf(128),
-                buffer.readUtf(32767),
-                buffer.readUtf(128),
+                id,
+                text,
+                iconId,
+                iconType,
+                BubbleSpec.parseTextPartsJson(textPartsJson),
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
@@ -100,6 +111,8 @@ public final class BubblePayload {
                 buffer.readInt(),
                 buffer.readInt(),
                 BubbleSpec.TextAlignment.parse(buffer.readUtf(32)),
+                buffer.readInt(),
+                buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),

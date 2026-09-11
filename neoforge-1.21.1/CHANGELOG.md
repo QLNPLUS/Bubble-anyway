@@ -1,3 +1,10 @@
+## 1.1.0
+
+- Added optional diagnostics and automated startup/world smoke-test support.
+- Fixed rapid multi-bubble admission and layered rendering behavior.
+- Moved HUD rendering after the vanilla saving-indicator layer to stay above chat and hotbar content.
+- Added advancement, recipe, and FTB Quests toast conversion support.
+
 ## 1.0.2
 
 - Fixed textured bubble backgrounds so PNG and nine-slice materials fade in and out with the text.

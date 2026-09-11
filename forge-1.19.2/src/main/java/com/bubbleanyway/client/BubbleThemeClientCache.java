@@ -69,17 +69,17 @@ public final class BubbleThemeClientCache {
         }
     }
 
-    public static void enqueue(String themeId, String overridesJson) {
+    public static boolean enqueue(String themeId, String overridesJson) {
         loadLocalThemesIfNeeded();
         if (!hasTheme(themeId)) {
-            requestFromServer(themeId, overridesJson);
-            return;
+            return requestFromServer(themeId, overridesJson);
         }
 
         try {
-            BubbleOverlay.enqueue(resolve(themeId, overridesJson));
+            return BubbleOverlay.enqueue(resolve(themeId, overridesJson));
         } catch (RuntimeException exception) {
             LOGGER.warn("Could not show Bubble Anyway theme {}", themeId, exception);
+            return false;
         }
     }
 
@@ -112,23 +112,26 @@ public final class BubbleThemeClientCache {
         localThemesLoaded = false;
     }
 
-    private static void requestFromServer(String themeId, String overridesJson) {
+    private static boolean requestFromServer(String themeId, String overridesJson) {
         String canonicalId = canonicalId(themeId);
         boolean shouldRequest;
         synchronized (PENDING) {
             PENDING.computeIfAbsent(canonicalId, ignored -> new ArrayList<>()).add(overridesJson);
             shouldRequest = REQUESTED.add(canonicalId);
         }
-        if (shouldRequest) {
-            try {
-                BubbleNetwork.requestTheme(canonicalId);
-            } catch (RuntimeException exception) {
-                synchronized (PENDING) {
-                    REQUESTED.remove(canonicalId);
-                    PENDING.remove(canonicalId);
-                }
-                LOGGER.warn("Could not request Bubble Anyway theme {} because no server connection is available", canonicalId);
+        if (!shouldRequest) {
+            return false;
+        }
+        try {
+            BubbleNetwork.requestTheme(canonicalId);
+            return false;
+        } catch (RuntimeException exception) {
+            synchronized (PENDING) {
+                REQUESTED.remove(canonicalId);
+                PENDING.remove(canonicalId);
             }
+            LOGGER.warn("Could not request Bubble Anyway theme {} because no server connection is available", canonicalId);
+            return false;
         }
     }
 

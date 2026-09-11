@@ -1,3 +1,9 @@
+## 1.1.0
+
+- Added optional diagnostics and automated startup/world smoke-test support.
+- Fixed rapid multi-bubble admission and layered rendering behavior.
+- Added advancement, recipe, and FTB Quests toast conversion support.
+
 ## 1.0.2
 
 - Fixed textured bubble backgrounds so PNG and nine-slice materials fade in and out with the text.

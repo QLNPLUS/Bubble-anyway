@@ -53,6 +53,7 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | message | 字符串 | 无 | 同 text | text 的兼容别名。text 优先。 |
 | icon | 字符串 | "" | 物品 ID，例如 minecraft:diamond | 显示在文字左侧的物品图标。 |
 | item | 字符串 | "" | 同 icon | icon 的兼容别名。 |
+| iconType | 字符串 | AUTO | AUTO、ITEM、TEXTURE、NONE | AUTO 先按物品 ID 查找，再按 PNG 纹理查找；ITEM 强制物品图标；TEXTURE 强制 PNG；NONE 禁用图标。 |
 | iconSize | 整数 | 16 | 8 到 64 | 图标显示尺寸，单位为 GUI 像素。超出范围会被限制。 |
 | iconGap | 整数 | 6 | 0 到 64 | 图标与文字之间的间距。 |
 | iconOffsetX | 整数 | 0 | -4096 到 4096 | 图标相对于自动布局位置的水平偏移，单位为 GUI 像素。 |
@@ -79,6 +80,8 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | duration | 整数 | 100 | 1 到 72000 | 显示时长，单位为 tick。20 tick 约等于 1 秒。 |
 | fadeIn | 整数 | 8 | 0 到 duration | 淡入时长，单位为 tick。 |
 | fadeOut | 整数 | 12 | 0 到 duration | 淡出时长，单位为 tick。 |
+| slideIn | 整数 | 8 | 0 到 duration | 滑入时长，单位为 tick；仅对 `SLIDE_FROM_*` 生效。 |
+| slideOut | 整数 | 12 | 0 到 duration | 滑出时长，单位为 tick；仅对 `SLIDE_FROM_*` 生效，设为 0 可禁用滑出。 |
 | priority | 整数 | 0 | 任意整数 | 显示优先级。数值越大，优先级越高。 |
 | fontSize | 小数 | 1.0 | 0.5 到 4.0 | 字体和气泡整体缩放倍数。 |
 | scale | 小数 | 1.0 | 同 fontSize | fontSize 的兼容别名。 |
@@ -91,6 +94,8 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | replace | 布尔值 | true | true、false | 相同 id 的气泡是否替换。 |
 | anchor | 字符串 | CENTER_TOP | 见锚点列表 | 气泡定位基准点。 |
 | animation | 字符串 | FADE | 见动画列表 | 气泡进入和离开动画。 |
+| textParts | 数组 | 无 | 多个文本片段对象 | 支持多行、每段独立颜色、字号、粗体、斜体、下划线、删除线、乱码和阴影。存在时优先用于绘制文本。 |
+| textStyles | 对象 | 无 | role 到样式对象的映射 | 为 textParts 中的 role 提供默认样式，例如 title、subtitle。当前片段字段优先于角色样式。 |
 
 ### 颜色格式
 
@@ -234,6 +239,40 @@ src/main/resources/assets/<namespace>/textures/gui/example.png
 
 图标位于文本左侧，并参与自动宽度和自动高度计算。图标会跟随气泡的淡入、淡出和滑入、滑出动画。
 
+### PNG 图标
+
+`iconType: 'TEXTURE'` 时，`icon` 填写纹理资源路径，模组会读取 PNG 的实际宽高并保持比例缩放到 `iconSize` 的方框内：
+
+~~~javascript
+{
+  text: 'FTB Quests 特殊图标',
+  icon: 'my_mod:textures/gui/quest_icon.png',
+  iconType: 'TEXTURE',
+  iconSize: 24
+}
+~~~
+
+`iconType: 'AUTO'` 是默认值，会先尝试物品 ID，再尝试纹理路径。图标透明度会和气泡背景、文本使用同一个动画透明度。
+
+## 多段文本
+
+普通 `text` 仍然支持 `\\n` 换行。需要标题和副标题使用不同颜色或字号时，可以使用 `textParts`：
+
+~~~json
+{
+  "textParts": [
+    {"role": "title", "text": "任务完成"},
+    {"role": "subtitle", "text": "\\n奖励已经发放"}
+  ],
+  "textStyles": {
+    "title": {"color": "#FFFF55", "bold": true, "scale": 1.1},
+    "subtitle": {"color": "#FFFFFF", "italic": true, "scale": 0.9, "shadow": false}
+  }
+}
+~~~
+
+每个片段也可以直接写 `color`、`scale`、`bold`、`italic`、`underlined`、`strikethrough`、`obfuscated` 和 `shadow`，会覆盖对应的 `textStyles`。片段会参与自动宽度、自动高度和自动换行计算。
+
 ## 主题系统
 
 主题是部分定义的 JSON。主题中未填写的字段使用模组默认值，气泡 JSON 中明确填写的字段会覆盖主题。
@@ -327,6 +366,48 @@ assets/<namespace>/bubble_anyway/themes/<theme_path>.json
 ### 主题与资源
 
 主题 JSON 可以引用 background 和 sound，但服务器数据包不会自动把 PNG 或音效文件上传到客户端。引用的资源必须存在于 Bubble Anyway 本身、提供主题的第三方 mod 或客户端资源包。
+
+## 原版和第三方 Toast 接管
+
+Forge 1.20.1 版本支持将以下提示转换成 Bubble Anyway 气泡：
+
+- 原版成就：Task、Goal、Challenge 三种 frame 分别使用独立主题；
+- 原版配方解锁提示；
+- FTB Quests 的完成提示和奖励提示；
+- FTB Quests 能提供物品图标时使用物品图标，提供纹理资源时使用 PNG 图标。
+
+开关使用 Forge 的 TOML 客户端配置，文件由模组首次启动客户端时自动生成：
+
+~~~text
+config/bubble_anyway/client.toml
+~~~
+
+示例文件见 `examples/config/bubble_anyway/client.toml`。主题仍然放在 `config/bubble_anyway/themes.json`，配置中只填写主题 ID：
+
+~~~toml
+[toast]
+enabled = true
+fallback = "ORIGINAL"
+
+[toast.advancement]
+enabled = true
+taskTheme = "bubble_anyway:toast_advancement_task"
+goalTheme = "bubble_anyway:toast_advancement_goal"
+challengeTheme = "bubble_anyway:toast_advancement_challenge"
+
+[toast.recipe]
+enabled = true
+theme = "bubble_anyway:toast_recipe"
+
+[toast.ftbQuests]
+enabled = true
+completionTheme = "bubble_anyway:toast_ftb_completion"
+rewardTheme = "bubble_anyway:toast_ftb_reward"
+~~~
+
+气泡不会因为固定数量上限被丢弃。模组会按照最终目标矩形计算屏幕空间：当前锚点区域放不下的气泡进入等待队列，已有气泡结束后自动补位；队列按 `priority` 从高到低处理，同优先级按进入顺序处理。同一锚点会自动堆叠，不同锚点或自定义坐标允许重叠，并按绘制层顺序相互覆盖。
+
+`fallback = "ORIGINAL"` 时，如果主题不存在或第三方 Toast 无法识别，会保留原提示。已经成功进入 Bubble Anyway 等待队列的 Toast 会取消原版 Toast，不再受原版 Toast 槽位数量限制。`fallback = "IGNORE"` 时会隐藏无法转换的支持类型提示。修改主题 JSON 后执行 `/reload`，之后新产生的气泡使用新主题；已经显示中的气泡不会重绘。
 
 ## 指令
 
@@ -550,3 +631,6 @@ assets/bubble_anyway/textures/gui/background.png
 - [客户端资源主题示例](examples/resourcepack/assets/my_mod/bubble_anyway/themes/quest_notice.json)
 - [服务端 KubeJS 示例](examples/kubejs/server_scripts/bubble_anyway_example.js)
 - [客户端 KubeJS 示例](examples/kubejs/client_scripts/bubble_anyway_client_example.js)
+- [新增功能客户端测试脚本](examples/kubejs/client_scripts/bubble_anyway_new_features.js)
+- [新增功能服务端测试脚本](examples/kubejs/server_scripts/bubble_anyway_new_features_server.js)
+- [客户端 Toast 配置示例](examples/config/bubble_anyway/client.toml)

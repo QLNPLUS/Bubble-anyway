@@ -1,3 +1,9 @@
+## 1.1.0
+
+- Added optional diagnostics and automated startup/world smoke-test support.
+- Fixed rapid multi-bubble admission and layered rendering behavior.
+- Added Fabric advancement and recipe toast interception with item icons.
+
 ## 1.0.2
 
 - Fixed textured bubble backgrounds so PNG and nine-slice materials fade in and out with the text.

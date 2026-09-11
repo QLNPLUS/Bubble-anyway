@@ -21,7 +21,7 @@ direct Java dependency.
 - Use nine anchors: `TOP_LEFT`, `CENTER_TOP`, `TOP_RIGHT`, `CENTER_LEFT`,
   `CENTER`, `CENTER_RIGHT`, `BOTTOM_LEFT`, `CENTER_BOTTOM`, and `BOTTOM_RIGHT`.
 - Use `FADE` or slide-in animations from the left, right, top, or bottom edge
-  of the screen.
+  of the screen. Fade timings and slide timings are independently configurable.
 - Customize text color, size, alignment, bold, italic, underline, strikethrough,
   obfuscated text, shadow, wrapping, and line breaks.
 - Add a Minecraft item icon with configurable size, gap, and independent X/Y

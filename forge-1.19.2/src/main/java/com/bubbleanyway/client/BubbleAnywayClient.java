@@ -5,7 +5,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.ScreenEvent;
+import net.minecraftforge.client.event.ToastAddEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = BubbleAnyway.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -39,5 +41,19 @@ public final class BubbleAnywayClient {
                 event.getPartialTick(),
                 event.getScreen().width,
                 event.getScreen().height);
+    }
+
+    @SubscribeEvent
+    public static void replaceToast(ToastAddEvent event) {
+        BubbleToastIntegration.handle(event);
+    }
+
+    @SubscribeEvent
+    public static void clientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            Minecraft minecraft = Minecraft.getInstance();
+            BubbleOverlay.clientTick(minecraft);
+            BubbleDiagnostics.clientTick(minecraft);
+        }
     }
 }

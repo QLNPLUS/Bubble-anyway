@@ -11,6 +11,8 @@
       "animation": "SLIDE_FROM_TOP",
       "fadeIn": 8,
       "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
       "duration": 60,
       "priority": 200,
       "shadow": false
@@ -26,9 +28,137 @@
       "animation": "SLIDE_FROM_TOP",
       "fadeIn": 8,
       "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
       "duration": 60,
       "priority": 200,
       "shadow": false
+    },
+    "bubble_anyway:toast_advancement_task": {
+      "textStyles": {
+        "title": {"color": "#FFFFFFFF", "bold": true, "scale": 1.0},
+        "subtitle": {"color": "#D9FFFFFF", "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 300,
+      "shadow": true
+    },
+    "bubble_anyway:toast_advancement_goal": {
+      "textStyles": {
+        "title": {"color": "#FFFF55", "bold": true, "scale": 1.0},
+        "subtitle": {"color": "#FFFFFF", "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background_modern.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 310,
+      "shadow": true
+    },
+    "bubble_anyway:toast_advancement_challenge": {
+      "textStyles": {
+        "title": {"color": "#FFFF55", "bold": true, "scale": 1.1},
+        "subtitle": {"color": "#FFAA00", "italic": true, "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 10,
+      "slideOut": 14,
+      "duration": 120,
+      "priority": 320,
+      "shadow": true
+    },
+    "bubble_anyway:toast_recipe": {
+      "textStyles": {
+        "title": {"color": "#55FFFF", "bold": true, "scale": 1.0},
+        "subtitle": {"color": "#FFFFFF", "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background_modern.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 280,
+      "shadow": true
+    },
+    "bubble_anyway:toast_ftb_completion": {
+      "textStyles": {
+        "title": {"color": "#55FF55", "bold": true, "scale": 1.0},
+        "subtitle": {"color": "#FFFFFF", "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 330,
+      "shadow": true
+    },
+    "bubble_anyway:toast_ftb_reward": {
+      "textStyles": {
+        "title": {"color": "#FFAA00", "bold": true, "scale": 1.0},
+        "subtitle": {"color": "#FFFFFF", "scale": 0.9}
+      },
+      "background": "bubble_anyway:textures/gui/background_modern.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 10,
+      "anchor": "TOP_RIGHT",
+      "x": -12,
+      "y": 12,
+      "animation": "SLIDE_FROM_RIGHT",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 325,
+      "shadow": true
     }
   }
 }
