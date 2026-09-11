@@ -1,19 +1,55 @@
 package com.bubbleanyway.client;
 
 import com.bubbleanyway.BubbleAnyway;
+import com.mojang.logging.LogUtils;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.ToastAddEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
+import org.slf4j.Logger;
 
 @Mod(value = BubbleAnyway.MOD_ID, dist = Dist.CLIENT)
 public final class BubbleAnywayClient {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Identifier BUBBLE_LAYER_ID =
+            Identifier.fromNamespaceAndPath(BubbleAnyway.MOD_ID, "bubble_overlay");
+
     public BubbleAnywayClient(IEventBus modEventBus) {
         modEventBus.addListener(BubbleAnywayClient::registerGuiLayers);
+        NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::replaceToast);
+        NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderScreenPost);
+        NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::clientTick);
     }
 
+    /** Register above every vanilla HUD layer, including the chat layer. */
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAboveAll(BubbleAnyway.id("message_bubbles"), BubbleOverlay::render);
+        event.registerAboveAll(BUBBLE_LAYER_ID, (graphics, partialTick) -> {
+            if (Minecraft.getInstance().screen == null) {
+                BubbleOverlay.render(graphics, partialTick);
+            }
+        });
+    }
+
+    public static void replaceToast(ToastAddEvent event) {
+        BubbleToastIntegration.handle(event);
+    }
+
+    /** Render after the current screen so bubbles stay visible over mod GUIs. */
+    public static void renderScreenPost(ScreenEvent.Render.Post event) {
+        if (Minecraft.getInstance().screen != null) {
+            BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick());
+        }
+    }
+
+    public static void clientTick(ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        BubbleOverlay.clientTick(minecraft);
+        BubbleDiagnostics.clientTick(minecraft);
     }
 }

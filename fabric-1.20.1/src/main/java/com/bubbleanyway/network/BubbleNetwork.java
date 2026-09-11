@@ -11,6 +11,9 @@ import net.minecraft.util.Identifier;
 
 public final class BubbleNetwork {
     public static final Identifier CHANNEL = BubbleAnyway.id("bubble");
+    public static final Identifier THEME_CHANNEL = BubbleAnyway.id("bubble_theme");
+    public static final Identifier THEME_REQUEST_CHANNEL = BubbleAnyway.id("bubble_theme_request");
+    public static final Identifier THEME_SYNC_CHANNEL = BubbleAnyway.id("bubble_theme_sync");
 
     private BubbleNetwork() {
     }
@@ -28,6 +31,34 @@ public final class BubbleNetwork {
             PacketByteBuf buffer = PacketByteBufs.create();
             BubblePayload.encode(buffer, BubblePayload.clearAll());
             ServerPlayNetworking.send(player, CHANNEL, buffer);
+        }
+    }
+
+    public static void sendTheme(Collection<ServerPlayerEntity> players, String themeId, String overridesJson) {
+        for (ServerPlayerEntity player : players) {
+            PacketByteBuf buffer = PacketByteBufs.create();
+            BubbleThemePayload.encode(buffer, BubbleThemePayload.show(themeId, overridesJson));
+            ServerPlayNetworking.send(player, THEME_CHANNEL, buffer);
+        }
+    }
+
+    public static void sendThemeDefinition(ServerPlayerEntity player, String themeId) {
+        if (player == null) {
+            return;
+        }
+        BubbleThemeSyncPayload.fromTheme(themeId).ifPresent(payload -> {
+            PacketByteBuf buffer = PacketByteBufs.create();
+            BubbleThemeSyncPayload.encode(buffer, payload);
+            ServerPlayNetworking.send(player, THEME_SYNC_CHANNEL, buffer);
+        });
+    }
+
+    public static void syncThemes(Collection<ServerPlayerEntity> players) {
+        BubbleThemeSyncPayload payload = BubbleThemeSyncPayload.fromCurrentThemes();
+        for (ServerPlayerEntity player : players) {
+            PacketByteBuf buffer = PacketByteBufs.create();
+            BubbleThemeSyncPayload.encode(buffer, payload);
+            ServerPlayNetworking.send(player, THEME_SYNC_CHANNEL, buffer);
         }
     }
 }

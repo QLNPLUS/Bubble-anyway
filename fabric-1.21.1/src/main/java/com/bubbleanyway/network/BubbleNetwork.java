@@ -9,6 +9,9 @@ import net.minecraft.util.Identifier;
 
 public final class BubbleNetwork {
     public static final Identifier CHANNEL = BubblePayload.ID.id();
+    public static final Identifier THEME_CHANNEL = BubbleThemePayload.ID.id();
+    public static final Identifier THEME_REQUEST_CHANNEL = BubbleThemeRequestPayload.ID.id();
+    public static final Identifier THEME_SYNC_CHANNEL = BubbleThemeSyncPayload.ID.id();
 
     private BubbleNetwork() {
     }
@@ -22,6 +25,26 @@ public final class BubbleNetwork {
     public static void clear(Collection<ServerPlayerEntity> players) {
         for (ServerPlayerEntity player : players) {
             ServerPlayNetworking.send(player, BubblePayload.clearAll());
+        }
+    }
+
+    public static void sendTheme(Collection<ServerPlayerEntity> players, String themeId, String overridesJson) {
+        BubbleThemePayload payload = BubbleThemePayload.show(themeId, overridesJson);
+        for (ServerPlayerEntity player : players) {
+            ServerPlayNetworking.send(player, payload);
+        }
+    }
+
+    public static void sendThemeDefinition(ServerPlayerEntity player, String themeId) {
+        if (player != null) {
+            BubbleThemeSyncPayload.fromTheme(themeId).ifPresent(payload -> ServerPlayNetworking.send(player, payload));
+        }
+    }
+
+    public static void syncThemes(Collection<ServerPlayerEntity> players) {
+        BubbleThemeSyncPayload payload = BubbleThemeSyncPayload.fromCurrentThemes();
+        for (ServerPlayerEntity player : players) {
+            ServerPlayNetworking.send(player, payload);
         }
     }
 }

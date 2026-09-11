@@ -20,13 +20,21 @@ public final class BubbleCommand {
         event.getDispatcher().register(Commands.literal("bubble")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("show")
+                        .then(Commands.literal("theme")
+                                .then(Commands.argument("theme", StringArgumentType.word())
+                                        .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                .executes(BubbleCommand::showThemeSelf))))
                         .then(Commands.argument("targets", EntityArgument.players())
                                 .then(Commands.argument("config", StringArgumentType.greedyString())
-                                        .executes(BubbleCommand::show))))
+                                        .executes(BubbleCommand::show))
+                                .then(Commands.literal("theme")
+                                        .then(Commands.argument("theme", StringArgumentType.word())
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(BubbleCommand::showTheme)))))
                 .then(Commands.literal("clear")
                         .executes(context -> clear(context.getSource().getServer().getPlayerList().getPlayers()))
                         .then(Commands.argument("targets", EntityArgument.players())
-                                .executes(BubbleCommand::clearTargets))));
+                                .executes(BubbleCommand::clearTargets)))));
     }
 
     private static int show(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -41,6 +49,26 @@ public final class BubbleCommand {
         }
 
         source.sendSuccess(() -> Component.literal("Bubble sent to " + players.size() + " player(s)."), true);
+        return players.size();
+    }
+
+    private static int showThemeSelf(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        BubbleServerApi.showTheme(player,
+                StringArgumentType.getString(context, "theme"),
+                StringArgumentType.getString(context, "text"));
+        source.sendSuccess(() -> Component.literal("Bubble theme sent."), true);
+        return 1;
+    }
+
+    private static int showTheme(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        Collection<ServerPlayer> players = EntityArgument.getPlayers(context, "targets");
+        BubbleServerApi.showTheme(players,
+                StringArgumentType.getString(context, "theme"),
+                StringArgumentType.getString(context, "text"));
+        source.sendSuccess(() -> Component.literal("Bubble theme sent to " + players.size() + " player(s)."), true);
         return players.size();
     }
 

@@ -10,6 +10,8 @@
   "animation": "SLIDE_FROM_TOP",
   "fadeIn": 8,
   "fadeOut": 12,
+  "slideIn": 8,
+  "slideOut": 12,
   "duration": 100,
   "priority": 100,
   "replace": true

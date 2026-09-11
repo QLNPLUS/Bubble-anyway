@@ -1,0 +1,21 @@
+# Bubble Anyway Forge 1.20.1 client toast integration example.
+# Forge normally creates this file automatically at config/bubble_anyway/client.toml.
+
+[toast]
+enabled = true
+fallback = "ORIGINAL"
+
+[toast.advancement]
+enabled = true
+taskTheme = "bubble_anyway:toast_advancement_task"
+goalTheme = "bubble_anyway:toast_advancement_goal"
+challengeTheme = "bubble_anyway:toast_advancement_challenge"
+
+[toast.recipe]
+enabled = true
+theme = "bubble_anyway:toast_recipe"
+
+[toast.ftbQuests]
+enabled = true
+completionTheme = "bubble_anyway:toast_ftb_completion"
+rewardTheme = "bubble_anyway:toast_ftb_reward"

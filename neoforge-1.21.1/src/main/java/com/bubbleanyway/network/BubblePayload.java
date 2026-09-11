@@ -20,6 +20,8 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
                     buffer.readUtf(128),
                     buffer.readUtf(32767),
                     buffer.readUtf(128),
+                    BubbleSpec.IconType.parse(buffer.readUtf(32)),
+                    BubbleSpec.parseTextPartsJson(buffer.readUtf(32767)),
                     buffer.readInt(),
                     buffer.readInt(),
                     buffer.readInt(),
@@ -41,6 +43,8 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
                     buffer.readInt(),
                     buffer.readInt(),
                     BubbleSpec.TextAlignment.parse(buffer.readUtf(32)),
+                    buffer.readInt(),
+                    buffer.readInt(),
                     buffer.readInt(),
                     buffer.readInt(),
                     buffer.readInt(),
@@ -69,6 +73,8 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
             buffer.writeUtf(spec.id(), 128);
             buffer.writeUtf(spec.text(), 32767);
             buffer.writeUtf(spec.iconId(), 128);
+            buffer.writeUtf(spec.iconType().name(), 32);
+            buffer.writeUtf(spec.textPartsJson(), 32767);
             buffer.writeInt(spec.iconSize());
             buffer.writeInt(spec.iconGap());
             buffer.writeInt(spec.iconOffsetX());
@@ -93,6 +99,8 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
             buffer.writeInt(spec.duration());
             buffer.writeInt(spec.fadeIn());
             buffer.writeInt(spec.fadeOut());
+            buffer.writeInt(spec.slideIn());
+            buffer.writeInt(spec.slideOut());
             buffer.writeInt(spec.priority());
             buffer.writeFloat(spec.scale());
             buffer.writeBoolean(spec.bold());

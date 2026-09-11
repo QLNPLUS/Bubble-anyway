@@ -17,16 +17,26 @@ public final class BubbleCommand {
     }
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+        var show = CommandManager.literal("show")
+                .then(CommandManager.literal("theme")
+                        .then(CommandManager.argument("theme", StringArgumentType.word())
+                                .then(CommandManager.argument("text", StringArgumentType.greedyString())
+                                        .executes(BubbleCommand::showThemeSelf))))
+                .then(CommandManager.argument("targets", EntityArgumentType.players())
+                        .then(CommandManager.argument("config", StringArgumentType.greedyString())
+                                .executes(BubbleCommand::show))
+                        .then(CommandManager.literal("theme")
+                                .then(CommandManager.argument("theme", StringArgumentType.word())
+                                        .then(CommandManager.argument("text", StringArgumentType.greedyString())
+                                                .executes(BubbleCommand::showTheme)))));
+        var clear = CommandManager.literal("clear")
+                .executes(context -> clear(context.getSource().getServer().getPlayerManager().getPlayerList()))
+                .then(CommandManager.argument("targets", EntityArgumentType.players())
+                        .executes(BubbleCommand::clearTargets));
         dispatcher.register(CommandManager.literal("bubble")
                 .requires(source -> source.hasPermissionLevel(2))
-                .then(CommandManager.literal("show")
-                        .then(CommandManager.argument("targets", EntityArgumentType.players())
-                                .then(CommandManager.argument("config", StringArgumentType.greedyString())
-                                        .executes(BubbleCommand::show))))
-                .then(CommandManager.literal("clear")
-                        .executes(context -> clear(context.getSource().getServer().getPlayerManager().getPlayerList()))
-                        .then(CommandManager.argument("targets", EntityArgumentType.players())
-                                .executes(BubbleCommand::clearTargets))));
+                .then(show)
+                .then(clear));
     }
 
     private static int show(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
@@ -41,6 +51,30 @@ public final class BubbleCommand {
         }
 
         source.sendFeedback(() -> Text.literal("Bubble sent to " + players.size() + " player(s)."), true);
+        return players.size();
+    }
+
+    private static int showThemeSelf(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerCommandSource source = context.getSource();
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) {
+            source.sendError(Text.literal("This form of the command must be run by a player."));
+            return 0;
+        }
+        BubbleServerApi.showTheme(player,
+                StringArgumentType.getString(context, "theme"),
+                StringArgumentType.getString(context, "text"));
+        source.sendFeedback(() -> Text.literal("Bubble theme sent."), true);
+        return 1;
+    }
+
+    private static int showTheme(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        ServerCommandSource source = context.getSource();
+        Collection<ServerPlayerEntity> players = EntityArgumentType.getPlayers(context, "targets");
+        BubbleServerApi.showTheme(players,
+                StringArgumentType.getString(context, "theme"),
+                StringArgumentType.getString(context, "text"));
+        source.sendFeedback(() -> Text.literal("Bubble theme sent to " + players.size() + " player(s)."), true);
         return players.size();
     }
 

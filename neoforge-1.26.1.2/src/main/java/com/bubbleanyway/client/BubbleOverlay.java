@@ -2,6 +2,7 @@ package com.bubbleanyway.client;
 
 import com.bubbleanyway.data.BubbleSpec;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -25,34 +27,56 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
 
 public final class BubbleOverlay {
-    private static final int MAX_ACTIVE_BUBBLES = 16;
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final int SCREEN_MARGIN = 6;
     private static final float MIN_RENDER_ALPHA = 0.02F;
     private static final List<ActiveBubble> ACTIVE = new ArrayList<>();
+    private static final List<QueuedBubble> PENDING = new ArrayList<>();
     private static final Map<Identifier, TextureSize> TEXTURE_SIZES = new HashMap<>();
     private static final Map<Identifier, ItemStack> ICON_STACKS = new HashMap<>();
+    private static final Map<GeneratedTextureKey, PreparedTexture> GENERATED_TEXTURES = new HashMap<>();
+    private static boolean renderCallbackLogged;
     private static long sequence;
+    private static long generatedTextureSequence;
+    private static long logicalNow;
+    private static long wallClockNow;
+    private static boolean clockInitialized;
 
     private BubbleOverlay() {
     }
 
-    public static synchronized void enqueue(BubbleSpec spec) {
+    public static synchronized boolean enqueue(BubbleSpec spec) {
+        if (Minecraft.getInstance().level == null) {
+            return false;
+        }
         if (spec.replace()) {
             ACTIVE.removeIf(active -> active.spec.id().equals(spec.id()));
+            PENDING.removeIf(queued -> queued.spec.id().equals(spec.id()));
         }
-        ACTIVE.add(new ActiveBubble(spec, System.nanoTime(), sequence++));
-        ACTIVE.sort(Comparator.comparingInt((ActiveBubble active) -> active.spec.priority()).reversed()
-                .thenComparingLong(active -> active.sequence));
-        while (ACTIVE.size() > MAX_ACTIVE_BUBBLES) {
-            ACTIVE.remove(ACTIVE.size() - 1);
-        }
-        playSound(spec);
+        PENDING.add(new QueuedBubble(spec, sequence++));
+        PENDING.sort(Comparator.comparingInt((QueuedBubble queued) -> queued.spec.priority()).reversed()
+                .thenComparingLong(queued -> queued.sequence));
+        LOGGER.debug("Queued Bubble Anyway bubble {} (pending={}, active={})", spec.id(), PENDING.size(), ACTIVE.size());
+        return true;
     }
 
     public static synchronized void clear() {
         ACTIVE.clear();
+        PENDING.clear();
+        logicalNow = 0L;
+        wallClockNow = 0L;
+        clockInitialized = false;
+    }
+
+    public static synchronized void clientTick(Minecraft minecraft) {
+        if (minecraft.level == null) {
+            clear();
+            return;
+        }
+        animationNow(minecraft.isPaused());
     }
 
     private static void playSound(BubbleSpec spec) {
@@ -73,36 +97,168 @@ public final class BubbleOverlay {
     }
 
     public static void render(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
+        renderInternal(graphics);
+    }
+
+    public static void render(GuiGraphicsExtractor graphics, float partialTick) {
+        renderInternal(graphics);
+    }
+
+    public static synchronized int activeCount() {
+        return ACTIVE.size();
+    }
+
+    public static synchronized int pendingCount() {
+        return PENDING.size();
+    }
+
+    public static boolean renderCallbackSeen() {
+        return renderCallbackLogged;
+    }
+
+    private static void renderInternal(GuiGraphicsExtractor graphics) {
+        if (!renderCallbackLogged) {
+            LOGGER.info("Bubble Anyway GUI layer render callback is active");
+            renderCallbackLogged = true;
         }
+        Minecraft minecraft = Minecraft.getInstance();
 
         int screenWidth = graphics.guiWidth();
         int screenHeight = graphics.guiHeight();
 
-        long now = System.nanoTime();
-        List<ActiveBubble> visible = snapshot(now);
+        if (minecraft.level == null) {
+            clear();
+            return;
+        }
+        long now = animationNow(minecraft.isPaused());
+        Font font = minecraft.font;
+        List<ActiveBubble> visible = snapshot(now, font, screenWidth, screenHeight);
         if (visible.isEmpty()) {
             return;
         }
 
-        Font font = minecraft.font;
+        // NeoForge 26.1 extracts GUI elements into ordered strata instead of drawing them
+        // immediately. Start a new stratum so bubbles stay above the vanilla HUD and screens.
+        graphics.nextStratum();
         EnumMap<BubbleSpec.Anchor, Integer> stackOffsets = new EnumMap<>(BubbleSpec.Anchor.class);
+        Map<ActiveBubble, Integer> bubbleOffsets = new HashMap<>();
+        Map<ActiveBubble, BubbleLayout> layouts = new HashMap<>();
+        Map<ActiveBubble, ResolvedIcon> icons = new HashMap<>();
         graphics.pose().pushMatrix();
         for (ActiveBubble active : visible) {
-            ItemStack iconStack = resolveIcon(active.spec.iconId());
-            BubbleLayout layout = BubbleLayout.create(font, active.spec, screenWidth, !iconStack.isEmpty());
+            ResolvedIcon icon = resolveIcon(active.spec);
+            BubbleLayout layout = BubbleLayout.create(font, active.spec, screenWidth, !icon.isEmpty());
             int stackOffset = stackOffsets.getOrDefault(active.spec.anchor(), 0);
-            renderBubble(graphics, font, active, layout, iconStack, stackOffset, screenWidth, screenHeight, now);
+            bubbleOffsets.put(active, stackOffset);
+            layouts.put(active, layout);
+            icons.put(active, icon);
             stackOffsets.put(active.spec.anchor(), stackOffset + layout.scaledHeight + SCREEN_MARGIN);
+        }
+        for (int i = visible.size() - 1; i >= 0; i--) {
+            ActiveBubble active = visible.get(i);
+            renderBubble(graphics, font, active, layouts.get(active), icons.get(active), bubbleOffsets.get(active),
+                    screenWidth, screenHeight, now);
         }
         graphics.pose().popMatrix();
     }
 
-    private static synchronized List<ActiveBubble> snapshot(long now) {
+    private static synchronized List<ActiveBubble> snapshot(
+            long now,
+            Font font,
+            int screenWidth,
+            int screenHeight) {
         ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec.duration());
+        if (!Minecraft.getInstance().isPaused()) {
+            promotePending(now, font, screenWidth, screenHeight);
+        }
         return List.copyOf(ACTIVE);
+    }
+
+    private static synchronized long animationNow(boolean paused) {
+        long wallNow = System.nanoTime();
+        if (!clockInitialized) {
+            clockInitialized = true;
+            logicalNow = wallNow;
+        } else if (!paused) {
+            logicalNow += Math.max(0L, wallNow - wallClockNow);
+        }
+        wallClockNow = wallNow;
+        return logicalNow;
+    }
+
+    private static void promotePending(long now, Font font, int screenWidth, int screenHeight) {
+        boolean promoted;
+        do {
+            promoted = false;
+            for (QueuedBubble queued : List.copyOf(PENDING)) {
+                ActiveBubble candidate = new ActiveBubble(queued.spec, now, queued.sequence);
+                List<ActiveBubble> trial = new ArrayList<>(ACTIVE);
+                trial.add(candidate);
+                trial.sort(Comparator.comparingInt((ActiveBubble active) -> active.spec.priority()).reversed()
+                        .thenComparingLong(active -> active.sequence));
+                if (!fitsCandidateOnScreen(trial, candidate, font, screenWidth, screenHeight)) {
+                    continue;
+                }
+                PENDING.remove(queued);
+                ACTIVE.add(candidate);
+                ACTIVE.sort(Comparator.comparingInt((ActiveBubble active) -> active.spec.priority()).reversed()
+                        .thenComparingLong(active -> active.sequence));
+                playSound(candidate.spec);
+                promoted = true;
+                break;
+            }
+        } while (promoted && !PENDING.isEmpty());
+    }
+
+    private static boolean fitsCandidateOnScreen(
+            List<ActiveBubble> bubbles,
+            ActiveBubble candidate,
+            Font font,
+            int screenWidth,
+            int screenHeight) {
+        EnumMap<BubbleSpec.Anchor, Integer> stackOffsets = new EnumMap<>(BubbleSpec.Anchor.class);
+        for (ActiveBubble active : bubbles) {
+            ResolvedIcon icon = resolveIcon(active.spec);
+            BubbleLayout layout = BubbleLayout.create(font, active.spec, screenWidth, !icon.isEmpty());
+            int stackOffset = stackOffsets.getOrDefault(active.spec.anchor(), 0);
+            float[] target = targetPosition(active.spec, layout, stackOffset, screenWidth, screenHeight);
+            if (active == candidate) {
+                return target[0] >= SCREEN_MARGIN && target[1] >= SCREEN_MARGIN
+                        && target[0] + layout.scaledWidth <= screenWidth - SCREEN_MARGIN
+                        && target[1] + layout.scaledHeight <= screenHeight - SCREEN_MARGIN;
+            }
+            stackOffsets.put(active.spec.anchor(), stackOffset + layout.scaledHeight + SCREEN_MARGIN);
+        }
+        return false;
+    }
+
+    private static float[] targetPosition(
+            BubbleSpec spec,
+            BubbleLayout layout,
+            int stackOffset,
+            int screenWidth,
+            int screenHeight) {
+        float targetX = switch (spec.anchor()) {
+            case TOP_LEFT, CENTER_LEFT, BOTTOM_LEFT -> spec.x();
+            case TOP_RIGHT, CENTER_RIGHT, BOTTOM_RIGHT -> screenWidth - layout.scaledWidth + spec.x();
+            case CENTER_TOP, CENTER, CENTER_BOTTOM -> (screenWidth - layout.scaledWidth) / 2.0F + spec.x();
+        };
+        float baseY = switch (spec.anchor()) {
+            case TOP_LEFT, CENTER_TOP, TOP_RIGHT -> spec.y();
+            case BOTTOM_LEFT, CENTER_BOTTOM, BOTTOM_RIGHT -> screenHeight - layout.scaledHeight - spec.y();
+            case CENTER_LEFT, CENTER, CENTER_RIGHT -> (screenHeight - layout.scaledHeight) / 2.0F + spec.y();
+        };
+        float minX = SCREEN_MARGIN;
+        float maxX = Math.max(minX, screenWidth - layout.scaledWidth - SCREEN_MARGIN);
+        float minY = SCREEN_MARGIN;
+        float maxY = Math.max(minY, screenHeight - layout.scaledHeight - SCREEN_MARGIN);
+        baseY = Math.max(minY, Math.min(maxY, baseY));
+        float targetY = switch (spec.anchor()) {
+            case TOP_LEFT, CENTER_TOP, TOP_RIGHT -> baseY + stackOffset;
+            case BOTTOM_LEFT, CENTER_BOTTOM, BOTTOM_RIGHT -> baseY - stackOffset;
+            case CENTER_LEFT, CENTER, CENTER_RIGHT -> baseY + stackOffset;
+        };
+        return new float[] {Math.max(minX, Math.min(maxX, targetX)), targetY};
     }
 
     private static void renderBubble(
@@ -110,7 +266,7 @@ public final class BubbleOverlay {
             Font font,
             ActiveBubble active,
             BubbleLayout layout,
-            ItemStack iconStack,
+            ResolvedIcon icon,
             int stackOffset,
             int screenWidth,
             int screenHeight,
@@ -121,32 +277,17 @@ public final class BubbleOverlay {
         if (alpha <= MIN_RENDER_ALPHA) {
             return;
         }
-        float entrance = eased(Math.min(1.0F, spec.fadeIn() <= 0 ? 1.0F : (float) (age / spec.fadeIn())));
+        float slideEntrance = eased(Math.min(1.0F, spec.slideIn() <= 0 ? 1.0F : (float) (age / spec.slideIn())));
 
-        float targetX = switch (spec.anchor()) {
-            case TOP_LEFT, CENTER_LEFT, BOTTOM_LEFT -> spec.x();
-            case TOP_RIGHT, CENTER_RIGHT, BOTTOM_RIGHT -> screenWidth - layout.scaledWidth + spec.x();
-            case CENTER_TOP, CENTER, CENTER_BOTTOM -> (screenWidth - layout.scaledWidth) / 2.0F + spec.x();
-        };
-        float targetY = switch (spec.anchor()) {
-            case TOP_LEFT, CENTER_TOP, TOP_RIGHT -> spec.y() + stackOffset;
-            case BOTTOM_LEFT, CENTER_BOTTOM, BOTTOM_RIGHT -> screenHeight - layout.scaledHeight - spec.y() - stackOffset;
-            case CENTER_LEFT, CENTER, CENTER_RIGHT -> (screenHeight - layout.scaledHeight) / 2.0F + spec.y() + stackOffset;
-        };
-
-        // Clamp only the destination. The animated position must be allowed outside the screen.
-        float minX = SCREEN_MARGIN;
-        float maxX = Math.max(minX, screenWidth - layout.scaledWidth - SCREEN_MARGIN);
-        float minY = SCREEN_MARGIN;
-        float maxY = Math.max(minY, screenHeight - layout.scaledHeight - SCREEN_MARGIN);
-        targetX = Math.max(minX, Math.min(maxX, targetX));
-        targetY = Math.max(minY, Math.min(maxY, targetY));
+        float[] target = targetPosition(spec, layout, stackOffset, screenWidth, screenHeight);
+        float targetX = target[0];
+        float targetY = target[1];
 
         float slideDistance = spec.animation() == BubbleSpec.Animation.FADE ? 0.0F
                 : (spec.animation() == BubbleSpec.Animation.SLIDE_FROM_LEFT || spec.animation() == BubbleSpec.Animation.SLIDE_FROM_RIGHT
                 ? layout.scaledWidth : layout.scaledHeight) + SCREEN_MARGIN + 8.0F;
-        float slideIn = (1.0F - entrance) * slideDistance;
-        float slideOut = exitProgress(spec, age) * slideDistance;
+        float slideIn = (1.0F - slideEntrance) * slideDistance;
+        float slideOut = exitSlideProgress(spec, age) * slideDistance;
         float screenX = targetX;
         float screenY = targetY;
         if (spec.animation() == BubbleSpec.Animation.SLIDE_FROM_LEFT) screenX -= slideIn + slideOut;
@@ -165,33 +306,45 @@ public final class BubbleOverlay {
                 graphics.pose().popMatrix();
                 return;
             }
-            if (spec.backgroundBorder() > 0) {
-                renderNineSlice(graphics, texture, textureSize, layout.width, layout.height,
-                        spec.backgroundBorder(), spec.backgroundGuide(), alpha);
-            } else {
-                graphics.blit(RenderPipelines.GUI_TEXTURED, texture, 0, 0, 0.0F, 0.0F,
-                        layout.width, layout.height, layout.width, layout.height,
-                        textureSize.width, textureSize.height, alphaColor(alpha));
-            }
+            PreparedTexture prepared = spec.backgroundBorder() > 0
+                    ? prepareNineSliceTexture(texture, textureSize, spec.backgroundBorder(), spec.backgroundGuide(),
+                    layout.width, layout.height)
+                    : new PreparedTexture(texture, textureSize);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, prepared.texture(), 0, 0, 0.0F, 0.0F,
+                    layout.width, layout.height, layout.width, layout.height,
+                    prepared.size().width, prepared.size().height, alphaColor(alpha));
         } else {
             graphics.fill(0, 0, layout.width, layout.height, withAlpha(spec.backgroundColor(), alpha));
         }
 
-        if (!iconStack.isEmpty()) {
+        if (!icon.isEmpty()) {
             int iconY = spec.padding() + Math.max(0,
                     (layout.height - spec.padding() * 2 - layout.iconSize) / 2);
             graphics.pose().pushMatrix();
             graphics.pose().translate(spec.padding() + spec.iconOffsetX(),
                     iconY + spec.iconOffsetY());
-            float iconScale = layout.iconSize / 16.0F;
-            graphics.pose().scale(iconScale, iconScale);
-            graphics.item(iconStack, 0, 0);
+            if (icon.type() == BubbleSpec.IconType.ITEM) {
+                float iconScale = layout.iconSize / 16.0F;
+                graphics.pose().scale(iconScale, iconScale);
+                graphics.item(icon.itemStack(), 0, 0);
+            } else if (icon.type() == BubbleSpec.IconType.TEXTURE) {
+                int iconWidth = icon.textureSize().width();
+                int iconHeight = icon.textureSize().height();
+                float ratio = iconWidth / (float) Math.max(1, iconHeight);
+                int drawWidth = ratio >= 1.0F ? layout.iconSize : Math.max(1, Math.round(layout.iconSize * ratio));
+                int drawHeight = ratio <= 1.0F ? layout.iconSize : Math.max(1, Math.round(layout.iconSize / ratio));
+                int drawX = (layout.iconSize - drawWidth) / 2;
+                int drawY = (layout.iconSize - drawHeight) / 2;
+                graphics.blit(RenderPipelines.GUI_TEXTURED, icon.texture(), drawX, drawY,
+                        0.0F, 0.0F, drawWidth, drawHeight, iconWidth, iconHeight,
+                        iconWidth, iconHeight, alphaColor(alpha));
+            }
             graphics.pose().popMatrix();
         }
 
         int textY = spec.padding() + spec.textOffsetY();
-        for (FormattedCharSequence line : layout.lines) {
-            int lineWidth = font.width(line);
+        for (TextLine line : layout.lines) {
+            int lineWidth = line.width(font);
             int textX = switch (spec.textAlignment()) {
                 case LEFT -> layout.textStartX;
                 case CENTER -> layout.textStartX + (layout.textAreaWidth - lineWidth) / 2;
@@ -199,9 +352,17 @@ public final class BubbleOverlay {
             };
             int textAreaEnd = layout.textStartX + layout.textAreaWidth;
             textX = Math.max(layout.textStartX, Math.min(textAreaEnd - lineWidth, textX));
-            graphics.text(font, line, textX + spec.textOffsetX(), textY,
-                    withAlpha(spec.textColor(), alpha), spec.shadow());
-            textY += 9;
+            int runX = textX + spec.textOffsetX();
+            for (TextRun run : line.runs()) {
+                graphics.pose().pushMatrix();
+                graphics.pose().translate(runX, textY);
+                graphics.pose().scale(run.part().scale(), run.part().scale());
+                graphics.text(font, run.component(), 0, 0,
+                        withAlpha(run.part().color(), alpha), run.part().shadow());
+                graphics.pose().popMatrix();
+                runX += Math.round(font.width(run.component()) * run.part().scale());
+            }
+            textY += line.height(font);
         }
         graphics.pose().popMatrix();
     }
@@ -256,6 +417,90 @@ public final class BubbleOverlay {
                 sourceRightStart, sourceBottomStart, sourceBorder, sourceBorder, textureSize, alpha);
     }
 
+    private static PreparedTexture prepareNineSliceTexture(
+            Identifier sourceTexture,
+            TextureSize sourceSize,
+            int requestedBorder,
+            int requestedGuide,
+            int targetWidth,
+            int targetHeight) {
+        if (requestedGuide <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+            return new PreparedTexture(sourceTexture, sourceSize);
+        }
+
+        int sourceBorder = Math.min(requestedBorder, Math.min(sourceSize.width / 2, sourceSize.height / 2));
+        int sourceGuide = Math.min(requestedGuide, Math.min(
+                Math.max(0, (sourceSize.width - sourceBorder * 2) / 2),
+                Math.max(0, (sourceSize.height - sourceBorder * 2) / 2)));
+        if (sourceBorder <= 0 || sourceGuide <= 0) {
+            return new PreparedTexture(sourceTexture, sourceSize);
+        }
+
+        GeneratedTextureKey key = new GeneratedTextureKey(
+                sourceTexture, sourceSize, sourceBorder, sourceGuide, targetWidth, targetHeight);
+        PreparedTexture cached = GENERATED_TEXTURES.get(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        NativeImage preparedImage = null;
+        try {
+            var resource = Minecraft.getInstance().getResourceManager().getResource(sourceTexture);
+            if (resource.isEmpty()) {
+                return new PreparedTexture(sourceTexture, sourceSize);
+            }
+            try (InputStream inputStream = resource.get().open(); NativeImage sourceImage = NativeImage.read(inputStream)) {
+                preparedImage = new NativeImage(sourceImage.format(), targetWidth, targetHeight, false);
+                for (int y = 0; y < targetHeight; y++) {
+                    int sourceY = mapNineSliceCoordinate(y, targetHeight, sourceSize.height, sourceBorder, sourceGuide);
+                    for (int x = 0; x < targetWidth; x++) {
+                        int sourceX = mapNineSliceCoordinate(x, targetWidth, sourceSize.width, sourceBorder, sourceGuide);
+                        preparedImage.setPixel(x, y, sourceImage.getPixel(sourceX, sourceY));
+                    }
+                }
+            }
+
+            Identifier generatedId = Identifier.fromNamespaceAndPath(
+                    "bubble_anyway", "generated/9slice/" + generatedTextureSequence++);
+            DynamicTexture dynamicTexture = new DynamicTexture(() -> generatedId.toString(), preparedImage);
+            preparedImage = null;
+            Minecraft.getInstance().getTextureManager().register(generatedId, dynamicTexture);
+            PreparedTexture prepared = new PreparedTexture(generatedId, new TextureSize(targetWidth, targetHeight));
+            GENERATED_TEXTURES.put(key, prepared);
+            return prepared;
+        } catch (IOException | RuntimeException ignored) {
+            if (preparedImage != null) {
+                preparedImage.close();
+            }
+            return new PreparedTexture(sourceTexture, sourceSize);
+        }
+    }
+
+    private static int mapNineSliceCoordinate(
+            int destinationCoordinate,
+            int destinationSize,
+            int sourceSize,
+            int sourceBorder,
+            int sourceGuide) {
+        int destinationBorder = Math.min(sourceBorder, destinationSize / 2);
+        int destinationCenterSize = destinationSize - destinationBorder * 2;
+        int sourceCenterStart = sourceBorder + sourceGuide;
+        int sourceCenterSize = sourceSize - sourceBorder * 2 - sourceGuide * 2;
+        int sourceRightStart = sourceSize - sourceBorder;
+        if (destinationCoordinate < destinationBorder) {
+            return destinationCoordinate;
+        }
+        if (destinationCoordinate >= destinationSize - destinationBorder) {
+            return sourceRightStart + destinationCoordinate - (destinationSize - destinationBorder);
+        }
+        if (destinationCenterSize <= 0 || sourceCenterSize <= 0) {
+            return Math.min(sourceSize - 1, sourceCenterStart);
+        }
+        int centerOffset = destinationCoordinate - destinationBorder;
+        return sourceCenterStart + Math.min(sourceCenterSize - 1,
+                (int) ((long) centerOffset * sourceCenterSize / destinationCenterSize));
+    }
+
     private static void blitPart(
             GuiGraphicsExtractor graphics,
             Identifier texture,
@@ -298,6 +543,33 @@ public final class BubbleOverlay {
         return size;
     }
 
+    private static ResolvedIcon resolveIcon(BubbleSpec spec) {
+        if (spec.iconId().isBlank() || spec.iconType() == BubbleSpec.IconType.NONE) {
+            return ResolvedIcon.EMPTY;
+        }
+
+        Identifier id = parseResource(spec.iconId());
+        if (id == null) {
+            return ResolvedIcon.EMPTY;
+        }
+
+        if (spec.iconType() != BubbleSpec.IconType.TEXTURE) {
+            ItemStack stack = ICON_STACKS.computeIfAbsent(id,
+                    key -> BuiltInRegistries.ITEM.getOptional(key).map(ItemStack::new).orElse(ItemStack.EMPTY));
+            if (!stack.isEmpty()) {
+                return new ResolvedIcon(BubbleSpec.IconType.ITEM, stack, null, null);
+            }
+        }
+
+        if (spec.iconType() != BubbleSpec.IconType.ITEM) {
+            TextureSize size = textureSize(id);
+            if (size != null) {
+                return new ResolvedIcon(BubbleSpec.IconType.TEXTURE, ItemStack.EMPTY, id, size);
+            }
+        }
+        return ResolvedIcon.EMPTY;
+    }
+
     private static ItemStack resolveIcon(String iconId) {
         Identifier id = parseResource(iconId);
         if (id == null) {
@@ -322,16 +594,16 @@ public final class BubbleOverlay {
         return Math.max(0.0F, Math.min(1.0F, Math.min(fadeIn, fadeOut)));
     }
 
-    private static float exitProgress(BubbleSpec spec, double age) {
-        if (spec.fadeOut() <= 0) {
+    private static float exitSlideProgress(BubbleSpec spec, double age) {
+        if (spec.slideOut() <= 0) {
             return 0.0F;
         }
 
-        double fadeOutStart = Math.max(0, spec.duration() - spec.fadeOut());
-        if (age <= fadeOutStart) {
+        double slideOutStart = Math.max(0, spec.duration() - spec.slideOut());
+        if (age <= slideOutStart) {
             return 0.0F;
         }
-        return eased(Math.min(1.0F, (float) ((age - fadeOutStart) / spec.fadeOut())));
+        return eased(Math.min(1.0F, (float) ((age - slideOutStart) / spec.slideOut())));
     }
 
     private static float eased(float progress) {
@@ -354,11 +626,64 @@ public final class BubbleOverlay {
         }
     }
 
+    private record QueuedBubble(BubbleSpec spec, long sequence) {
+    }
+
     private record TextureSize(int width, int height) {
     }
 
+    private record ResolvedIcon(
+            BubbleSpec.IconType type,
+            ItemStack itemStack,
+            Identifier texture,
+            TextureSize textureSize) {
+        private static final ResolvedIcon EMPTY =
+                new ResolvedIcon(BubbleSpec.IconType.NONE, ItemStack.EMPTY, null, null);
+
+        private boolean isEmpty() {
+            return type == BubbleSpec.IconType.NONE;
+        }
+    }
+
+    private static final class GeneratedTextureKey {
+        private final Identifier sourceTexture;
+        private final TextureSize sourceSize;
+        private final int border;
+        private final int guide;
+        private final int targetWidth;
+        private final int targetHeight;
+
+        private GeneratedTextureKey(Identifier sourceTexture, TextureSize sourceSize, int border, int guide,
+                                    int targetWidth, int targetHeight) {
+            this.sourceTexture = sourceTexture;
+            this.sourceSize = sourceSize;
+            this.border = border;
+            this.guide = guide;
+            this.targetWidth = targetWidth;
+            this.targetHeight = targetHeight;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof GeneratedTextureKey key)) {
+                return false;
+            }
+            return sourceTexture.equals(key.sourceTexture) && sourceSize.equals(key.sourceSize)
+                    && border == key.border && guide == key.guide
+                    && targetWidth == key.targetWidth && targetHeight == key.targetHeight;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(sourceTexture, sourceSize, border, guide, targetWidth, targetHeight);
+        }
+    }
+
+    private record PreparedTexture(Identifier texture, TextureSize size) {
+    }
+
     private static final class BubbleLayout {
-        private final List<FormattedCharSequence> lines;
+        private final List<TextLine> lines;
         private final int width;
         private final int height;
         private final int scaledWidth;
@@ -368,7 +693,7 @@ public final class BubbleOverlay {
         private final int textAreaWidth;
 
         private BubbleLayout(
-                List<FormattedCharSequence> lines,
+                List<TextLine> lines,
                 int width,
                 int height,
                 float scale,
@@ -391,33 +716,125 @@ public final class BubbleOverlay {
             int contentWidth = spec.width() > 0
                     ? Math.max(1, spec.width() - spec.padding() * 2 - iconWidth)
                     : Math.max(1, maxWidth - spec.padding() * 2 - iconWidth);
-            Style style = Style.EMPTY.withColor(TextColor.fromRgb(spec.textColor() & 0x00FFFFFF))
-                    .withBold(spec.bold())
-                    .withItalic(spec.italic())
-                    .withUnderlined(spec.underlined())
-                    .withStrikethrough(spec.strikethrough())
-                    .withObfuscated(spec.obfuscated());
-
-            List<FormattedCharSequence> lines = new ArrayList<>();
-            for (String part : spec.text().split("\\R", -1)) {
-                Component component = Component.literal(part).withStyle(style);
-                List<FormattedCharSequence> wrapped = font.split(component, contentWidth);
-                if (wrapped.isEmpty()) {
-                    lines.add(FormattedCharSequence.EMPTY);
-                } else {
-                    lines.addAll(wrapped);
-                }
-            }
-            int measuredWidth = lines.stream().mapToInt(sequence -> font.width(sequence)).max().orElse(0);
+            List<TextLine> lines = layoutText(font, spec, contentWidth);
+            int measuredWidth = lines.stream().mapToInt(line -> line.width(font)).max().orElse(0);
             int width = spec.width() > 0
                     ? spec.width()
                     : Math.min(maxWidth, Math.max(80, measuredWidth + spec.padding() * 2 + iconWidth));
-            int minimumHeight = Math.max(Math.max(9, lines.size() * 9), hasIcon ? spec.iconSize() : 0)
+            int minimumHeight = Math.max(Math.max(9, lines.stream().mapToInt(line -> line.height(font)).sum()), hasIcon ? spec.iconSize() : 0)
                     + spec.padding() * 2;
             int height = spec.height() > 0 ? Math.max(spec.height(), minimumHeight) : minimumHeight;
             int textStartX = spec.padding() + iconWidth;
             int textAreaWidth = Math.max(1, width - spec.padding() - textStartX);
             return new BubbleLayout(lines, width, height, spec.scale(), hasIcon ? spec.iconSize() : 0, textStartX, textAreaWidth);
         }
+
+        private static List<TextLine> layoutText(Font font, BubbleSpec spec, int contentWidth) {
+            List<TextLine> lines = new ArrayList<>();
+            TextLine current = new TextLine();
+            for (BubbleSpec.TextPart part : spec.textParts()) {
+                String[] explicitLines = part.text().split("\\R", -1);
+                for (int index = 0; index < explicitLines.length; index++) {
+                    current = appendWrapped(font, current, part, explicitLines[index], contentWidth, lines);
+                    if (index < explicitLines.length - 1) {
+                        lines.add(current);
+                        current = new TextLine();
+                    }
+                }
+            }
+            if (!current.runs().isEmpty() || lines.isEmpty()) {
+                lines.add(current);
+            }
+            return lines;
+        }
+
+        private static TextLine appendWrapped(
+                Font font,
+                TextLine current,
+                BubbleSpec.TextPart part,
+                String value,
+                int contentWidth,
+                List<TextLine> lines) {
+            int offset = 0;
+            while (offset < value.length()) {
+                int available = contentWidth - current.width(font);
+                if (available <= 0 && !current.runs().isEmpty()) {
+                    lines.add(current);
+                    current = new TextLine();
+                    available = contentWidth;
+                }
+
+                int fit = fittingLength(font, value, offset, available, part);
+                if (fit <= 0) {
+                    if (!current.runs().isEmpty()) {
+                        lines.add(current);
+                        current = new TextLine();
+                        continue;
+                    }
+                    fit = 1;
+                }
+                int end = Math.min(value.length(), offset + fit);
+                if (end < value.length()) {
+                    int space = value.lastIndexOf(' ', end - 1);
+                    if (space > offset) {
+                        end = space;
+                    }
+                }
+                String chunk = value.substring(offset, end);
+                if (!chunk.isEmpty()) {
+                    current.runs().add(new TextRun(part, component(part, chunk)));
+                }
+                offset = end;
+                while (offset < value.length() && value.charAt(offset) == ' ') {
+                    offset++;
+                }
+            }
+            return current;
+        }
+
+        private static int fittingLength(Font font, String value, int start, int available, BubbleSpec.TextPart part) {
+            int low = 0;
+            int high = value.length() - start;
+            while (low < high) {
+                int middle = (low + high + 1) / 2;
+                String candidate = value.substring(start, start + middle);
+                int width = Math.round(font.width(component(part, candidate)) * part.scale());
+                if (width <= available) {
+                    low = middle;
+                } else {
+                    high = middle - 1;
+                }
+            }
+            return low;
+        }
+
+        private static Component component(BubbleSpec.TextPart part, String text) {
+            Style style = Style.EMPTY.withColor(TextColor.fromRgb(part.color() & 0x00FFFFFF))
+                    .withBold(part.bold())
+                    .withItalic(part.italic())
+                    .withUnderlined(part.underlined())
+                    .withStrikethrough(part.strikethrough())
+                    .withObfuscated(part.obfuscated());
+            return Component.literal(text).withStyle(style);
+        }
+    }
+
+    private static final class TextLine {
+        private final List<TextRun> runs = new ArrayList<>();
+
+        private List<TextRun> runs() {
+            return runs;
+        }
+
+        private int width(Font font) {
+            return runs.stream().mapToInt(run -> Math.round(font.width(run.component()) * run.part().scale())).sum();
+        }
+
+        private int height(Font font) {
+            return Math.max(9, runs.stream().mapToInt(run -> Math.round(9.0F * run.part().scale())).max().orElse(9));
+        }
+    }
+
+    private record TextRun(BubbleSpec.TextPart part, Component component) {
     }
 }

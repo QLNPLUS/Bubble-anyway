@@ -19,7 +19,7 @@ Forge 1.19.2 的通用高优先级信息气泡提示模组。
 - 省略 `width`、`height` 时自动根据文字、换行和图标计算气泡尺寸
 - 支持 `background` 纹理资源路径，例如 `bubble_anyway:textures/gui/example.png`
 - `backgroundBorder` 大于 0 时启用九宫格背景；四角和四条边保持边框像素，中间区域自动拉伸。`backgroundGuide` 可跳过边框与中心之间的参考线像素，例如 66×66 图片使用 `backgroundBorder:8, backgroundGuide:1`。省略或设为 0 时整张 PNG 按气泡区域绘制
-- 支持 `priority`、`id`、`replace`，最多同时显示 16 条提示
+- 支持 `priority`、`id`、`replace`；气泡会根据屏幕空间自动排队，不使用固定数量上限
 
 ### 指令示例
 
@@ -95,5 +95,7 @@ BubbleAnyway.showJson(JSON.stringify({
 能力演示脚本：`examples/kubejs/client_scripts/bubble_anyway_showcase.js` 使用 `ClientEvents.tick` 延迟轮换九个屏幕区域，展示不同动画、对齐方式、图标、九宫格背景、文本格式和自适应尺寸。
 
 ### JSON 字段
+
+`duration`、`fadeIn`、`fadeOut`、`slideIn`、`slideOut` 使用 tick，20 tick 约等于 1 秒。`fadeIn` 和 `fadeOut` 只控制透明度；`slideIn` 和 `slideOut` 只控制 `SLIDE_FROM_*` 的位移动画，`FADE` 模式会忽略它们。设置 `fadeIn: 0, fadeOut: 0, slideIn: 8, slideOut: 0` 可实现完全不透明地从屏幕外弹入。
 
 `text` 必填。颜色字段推荐使用 `textColor`，同时兼容 `color`；支持 `#RRGGBB` 或 `#AARRGGBB`。`duration`、`fadeIn`、`fadeOut` 使用 tick，20 tick 约等于 1 秒。`width` 和 `height` 省略或设为 `0` 时自动适配；填写后分别固定气泡的最小宽度和最小高度，文字过多时仍会自动增高避免裁切。`maxWidth` 默认 `320`，用于自动宽度过长时换行。`textAlign` 支持 `LEFT`、`CENTER`、`RIGHT`，默认是 `LEFT`。`icon` 填物品 ID，例如 `minecraft:diamond`；`iconSize` 默认 `16`，`iconGap` 默认 `6`；`iconOffsetX`、`iconOffsetY`、`textOffsetX`、`textOffsetY` 默认都是 `0`，范围为 `-4096` 到 `4096`，只改变绘制位置，不参与自动宽高计算。`sound` 默认是 `minecraft:ui.button.click`，填写音效资源 ID即可更换；`soundVolume` 默认 `1.0`，范围 `0.0` 到 `2.0`；`soundPitch` 默认 `1.0`，范围 `0.5` 到 `2.0`。将 `sound` 设为空字符串或将 `soundVolume` 设为 `0` 可以关闭音效。普通 64×64 九宫格使用 `backgroundBorder:8`；如果 PNG 是 66×66，并在边框与中心之间保留 1px 黑色参考线，则使用 `backgroundBorder:8, backgroundGuide:1`，参考线不会参与拼接或显示。PNG 放在 `src/main/resources/assets/bubble_anyway/textures/gui/` 下，资源路径不写 `assets/`。

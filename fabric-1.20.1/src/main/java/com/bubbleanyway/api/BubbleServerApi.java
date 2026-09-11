@@ -6,6 +6,7 @@ import com.bubbleanyway.network.BubbleNetwork;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -37,16 +38,20 @@ public final class BubbleServerApi {
 
     public static void showJson(ServerPlayerEntity player, String json) {
         Optional<String> theme = BubbleThemeManager.themeFromJson(json);
-        show(player, theme.isPresent()
-                ? BubbleThemeManager.resolve(theme.get(), BubbleThemeManager.withoutThemeField(json))
-                : BubbleSpec.fromJson(json));
+        if (theme.isPresent()) {
+            showThemeJson(player, theme.get(), json);
+        } else {
+            show(player, BubbleSpec.fromJson(json));
+        }
     }
 
     public static void showJson(Collection<? extends ServerPlayerEntity> players, String json) {
         Optional<String> theme = BubbleThemeManager.themeFromJson(json);
-        show(players, theme.isPresent()
-                ? BubbleThemeManager.resolve(theme.get(), BubbleThemeManager.withoutThemeField(json))
-                : BubbleSpec.fromJson(json));
+        if (theme.isPresent()) {
+            showThemeJson(players, theme.get(), json);
+        } else {
+            show(players, BubbleSpec.fromJson(json));
+        }
     }
 
     public static void showAll(MinecraftServer server, BubbleSpec spec) {
@@ -57,33 +62,48 @@ public final class BubbleServerApi {
 
     public static void showAllJson(MinecraftServer server, String json) {
         Optional<String> theme = BubbleThemeManager.themeFromJson(json);
-        showAll(server, theme.isPresent()
-                ? BubbleThemeManager.resolve(theme.get(), BubbleThemeManager.withoutThemeField(json))
-                : BubbleSpec.fromJson(json));
+        if (theme.isPresent()) {
+            showAllThemeJson(server, theme.get(), json);
+        } else {
+            showAll(server, BubbleSpec.fromJson(json));
+        }
     }
 
     public static void showTheme(ServerPlayerEntity player, String themeId, String text) {
-        show(player, BubbleThemeManager.resolve(themeId, BubbleThemeManager.overridesWithText(text)));
+        showThemeJson(player, themeId, BubbleThemeManager.overridesWithText(text));
     }
 
     public static void showTheme(Collection<? extends ServerPlayerEntity> players, String themeId, String text) {
-        show(players, BubbleThemeManager.resolve(themeId, BubbleThemeManager.overridesWithText(text)));
+        showThemeJson(players, themeId, BubbleThemeManager.overridesWithText(text));
     }
 
     public static void showThemeJson(ServerPlayerEntity player, String themeId, String overridesJson) {
-        show(player, BubbleThemeManager.resolve(themeId, BubbleThemeManager.withoutThemeField(overridesJson)));
+        if (player != null) {
+            showThemeJson(List.of(player), themeId, overridesJson);
+        }
     }
 
     public static void showThemeJson(Collection<? extends ServerPlayerEntity> players, String themeId, String overridesJson) {
-        show(players, BubbleThemeManager.resolve(themeId, BubbleThemeManager.withoutThemeField(overridesJson)));
+        Objects.requireNonNull(players, "players");
+        String normalizedOverrides = BubbleThemeManager.withoutThemeField(overridesJson);
+        BubbleThemeManager.resolve(themeId, normalizedOverrides);
+        List<ServerPlayerEntity> targets = new ArrayList<>();
+        for (ServerPlayerEntity player : players) {
+            if (player != null) {
+                targets.add(player);
+            }
+        }
+        BubbleNetwork.sendTheme(targets, themeId, normalizedOverrides);
     }
 
     public static void showAllTheme(MinecraftServer server, String themeId, String text) {
-        showAll(server, BubbleThemeManager.resolve(themeId, BubbleThemeManager.overridesWithText(text)));
+        showAllThemeJson(server, themeId, BubbleThemeManager.overridesWithText(text));
     }
 
     public static void showAllThemeJson(MinecraftServer server, String themeId, String overridesJson) {
-        showAll(server, BubbleThemeManager.resolve(themeId, BubbleThemeManager.withoutThemeField(overridesJson)));
+        if (server != null) {
+            showThemeJson(server.getPlayerManager().getPlayerList(), themeId, overridesJson);
+        }
     }
 
     public static void clear(ServerPlayerEntity player) {

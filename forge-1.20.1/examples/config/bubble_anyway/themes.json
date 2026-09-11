@@ -9,6 +9,8 @@
       "animation": "SLIDE_FROM_TOP",
       "fadeIn": 8,
       "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
       "duration": 100,
       "priority": 200,
       "replace": true
@@ -22,8 +24,55 @@
       "animation": "SLIDE_FROM_BOTTOM",
       "fadeIn": 8,
       "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
       "duration": 100,
       "priority": 150,
+      "replace": true
+    },
+    "bubble_anyway:test_rich": {
+      "textStyles": {
+        "title": {
+          "color": "#FFFFFFFF",
+          "bold": true,
+          "scale": 1.15,
+          "shadow": true
+        },
+        "subtitle": {
+          "color": "#55FFFF",
+          "italic": true,
+          "scale": 0.9,
+          "shadow": false
+        }
+      },
+      "background": "bubble_anyway:textures/gui/background_modern.png",
+      "backgroundBorder": 8,
+      "backgroundGuide": 1,
+      "padding": 12,
+      "anchor": "CENTER_TOP",
+      "y": 18,
+      "animation": "SLIDE_FROM_TOP",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 10,
+      "slideOut": 14,
+      "duration": 120,
+      "priority": 250,
+      "replace": true
+    },
+    "bubble_anyway:test_texture_icon": {
+      "textColor": "#FFFFFFFF",
+      "backgroundColor": "#E62E7D32",
+      "padding": 10,
+      "anchor": "CENTER_BOTTOM",
+      "y": 18,
+      "animation": "SLIDE_FROM_BOTTOM",
+      "fadeIn": 8,
+      "fadeOut": 12,
+      "slideIn": 8,
+      "slideOut": 12,
+      "duration": 100,
+      "priority": 180,
       "replace": true
     }
   }
