@@ -7,6 +7,11 @@ clear, customizable message bubbles above most vanilla and modded GUI screens.
 Commands and KubeJS are also available for integrations that do not need a
 direct Java dependency.
 
+## Documentation
+
+- [中文 Wiki](https://github.com/QLNPLUS/Bubble-anyway/blob/main/forge-1.20.1/WIKI.md)
+- [English Wiki](https://github.com/QLNPLUS/Bubble-anyway/blob/main/forge-1.20.1/WIKI_EN.md)
+
 ## Features
 
 - Display multiple bubbles at the same time, with priority, replacement, IDs,
