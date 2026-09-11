@@ -1,8 +1,30 @@
 # Bubble Anyway Wiki
 
-适用于 Bubble Anyway Forge 1.20.1。
+适用于 Bubble Anyway 1.1.0 的全部支持版本。
 
 Bubble Anyway 是一个通用的信息气泡提示模组，支持服务端触发、客户端 KubeJS 触发、主题、本地资源、自动布局、动画、物品图标和九宫格 PNG 背景。
+
+## 支持版本
+
+| 加载器 | Minecraft |
+|---|---|
+| Forge | 1.19.2 |
+| Forge | 1.20.1 |
+| NeoForge | 1.21.1 |
+| NeoForge | 1.26.1.2 |
+| Fabric | 1.20.1 |
+| Fabric | 1.21.1 |
+
+请安装与 Minecraft 版本和加载器都匹配的 JAR。本文中的 API、JSON、主题和 KubeJS 示例适用于全部版本；个别加载器的 Toast 配置位置和渲染事件实现会有所不同。
+
+## 1.1.0 更新
+
+- 增加可选的客户端诊断功能和自动化冒烟测试支持。
+- 修复多个气泡快速进入时的空间检测、排队和覆盖绘制顺序。
+- 气泡数量不再使用固定上限；屏幕空间不足时进入等待队列，空间释放后自动补位。
+- 原版成就、配方解锁和 FTB Quests Toast 接管支持已迁移到各版本实现。
+- NeoForge 1.21.1 的游戏 HUD 绘制位于原生 HUD 最后一层之后，以减少聊天栏和快捷栏覆盖问题。
+- Forge 1.19.2 修复了物品图标在气泡外绘制的问题。
 
 ## 快速开始
 
@@ -369,12 +391,18 @@ assets/<namespace>/bubble_anyway/themes/<theme_path>.json
 
 ## 原版和第三方 Toast 接管
 
-Forge 1.20.1 版本支持将以下提示转换成 Bubble Anyway 气泡：
+支持 Toast 接管的版本可以将以下提示转换成 Bubble Anyway 气泡：
 
 - 原版成就：Task、Goal、Challenge 三种 frame 分别使用独立主题；
 - 原版配方解锁提示；
 - FTB Quests 的完成提示和奖励提示；
 - FTB Quests 能提供物品图标时使用物品图标，提供纹理资源时使用 PNG 图标。
+
+各加载器的接管入口不同，但配置含义一致：
+
+- Forge 1.19.2、Forge 1.20.1：Forge 客户端 TOML 配置；
+- NeoForge 1.21.1、NeoForge 1.26.1.2：NeoForge 客户端 TOML 配置；
+- Fabric 1.20.1、Fabric 1.21.1：模组生成的客户端 TOML 配置，使用 Fabric ToastManager 注入接管。
 
 开关使用 Forge 的 TOML 客户端配置，文件由模组首次启动客户端时自动生成：
 
@@ -382,7 +410,7 @@ Forge 1.20.1 版本支持将以下提示转换成 Bubble Anyway 气泡：
 config/bubble_anyway/client.toml
 ~~~
 
-示例文件见 `examples/config/bubble_anyway/client.toml`。主题仍然放在 `config/bubble_anyway/themes.json`，配置中只填写主题 ID：
+Forge 1.20.1 的示例文件见 `examples/config/bubble_anyway/client.toml`。主题仍然放在 `config/bubble_anyway/themes.json`，配置中只填写主题 ID：
 
 ~~~toml
 [toast]
@@ -408,6 +436,36 @@ rewardTheme = "bubble_anyway:toast_ftb_reward"
 气泡不会因为固定数量上限被丢弃。模组会按照最终目标矩形计算屏幕空间：当前锚点区域放不下的气泡进入等待队列，已有气泡结束后自动补位；队列按 `priority` 从高到低处理，同优先级按进入顺序处理。同一锚点会自动堆叠，不同锚点或自定义坐标允许重叠，并按绘制层顺序相互覆盖。
 
 `fallback = "ORIGINAL"` 时，如果主题不存在或第三方 Toast 无法识别，会保留原提示。已经成功进入 Bubble Anyway 等待队列的 Toast 会取消原版 Toast，不再受原版 Toast 槽位数量限制。`fallback = "IGNORE"` 时会隐藏无法转换的支持类型提示。修改主题 JSON 后执行 `/reload`，之后新产生的气泡使用新主题；已经显示中的气泡不会重绘。
+
+## 诊断与自动测试
+
+每个版本都包含默认关闭的诊断开关。诊断功能只在需要排查环境或加载器问题时启用，默认不会输出额外日志，也不会自动显示测试气泡。
+
+Forge 和 NeoForge 的配置文件为：
+
+```text
+config/bubble_anyway/client.toml
+```
+
+配置项位于 `[debug]`：
+
+```toml
+[debug]
+diagnosticsEnabled = false
+showTestBubble = false
+```
+
+Fabric 使用相同路径和字段。启用 `diagnosticsEnabled` 后进入世界，日志会记录主题是否可解析、Overlay 回调是否触发、Toast 接管入口是否收到对象、当前 active/pending 数量以及图标转换结果。`showTestBubble` 会额外显示一个带钻石图标的测试气泡，必须与 `diagnosticsEnabled` 同时启用。
+
+仓库提供自动启动测试脚本：
+
+```powershell
+.\tools\run-bubble-diagnostics.ps1 -TimeoutSeconds 150
+```
+
+脚本会使用本地实例启动各版本、临时打开诊断、进入世界并收集报告，测试结束后恢复原配置。Forge 1.19.2 的启动参数不支持自动进入单人世界，因此该版本默认执行启动级测试；其余版本会执行世界级诊断。脚本生成的报告只用于本地排查，不属于发布包。
+
+暂停游戏时，活动气泡会暂停计时，等待队列不会继续晋级；退出世界时活动和等待中的气泡都会清空。
 
 ## 指令
 
@@ -634,3 +692,4 @@ assets/bubble_anyway/textures/gui/background.png
 - [新增功能客户端测试脚本](examples/kubejs/client_scripts/bubble_anyway_new_features.js)
 - [新增功能服务端测试脚本](examples/kubejs/server_scripts/bubble_anyway_new_features_server.js)
 - [客户端 Toast 配置示例](examples/config/bubble_anyway/client.toml)
+- [English Wiki](WIKI_EN.md)
