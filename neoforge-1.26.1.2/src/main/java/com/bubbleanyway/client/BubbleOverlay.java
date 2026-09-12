@@ -1,5 +1,6 @@
 package com.bubbleanyway.client;
 
+import com.bubbleanyway.config.BubbleClientConfig;
 import com.bubbleanyway.data.BubbleSpec;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
@@ -129,14 +130,15 @@ public final class BubbleOverlay {
 
         int screenWidth = graphics.guiWidth();
         int screenHeight = graphics.guiHeight();
+        Font font = minecraft.font;
 
         if (minecraft.level == null) {
             clear();
             return;
         }
         long now = animationNow(minecraft.isPaused());
-        Font font = minecraft.font;
         List<ActiveBubble> visible = snapshot(now, font, screenWidth, screenHeight);
+        BubbleDiagnostics.overlayState(screenWidth, screenHeight, ACTIVE.size(), PENDING.size());
         if (layer != null) {
             visible = visible.stream().filter(active -> active.spec.renderLayer() == layer).toList();
         }
@@ -228,9 +230,15 @@ public final class BubbleOverlay {
             int stackOffset = stackOffsets.getOrDefault(active.spec.anchor(), 0);
             float[] target = targetPosition(active.spec, layout, stackOffset, screenWidth, screenHeight);
             if (active == candidate) {
-                return target[0] >= SCREEN_MARGIN && target[1] >= SCREEN_MARGIN
+                boolean fits = target[0] >= SCREEN_MARGIN && target[1] >= SCREEN_MARGIN
                         && target[0] + layout.scaledWidth <= screenWidth - SCREEN_MARGIN
                         && target[1] + layout.scaledHeight <= screenHeight - SCREEN_MARGIN;
+                if (BubbleClientConfig.diagnosticsEnabled()) {
+                    LOGGER.info("Bubble Anyway diagnostics: promotion candidate id={}, screen={}x{}, layout={}x{}, scaled={}x{}, target=({},{}), fits={}",
+                            active.spec.id(), screenWidth, screenHeight, layout.width, layout.height,
+                            layout.scaledWidth, layout.scaledHeight, target[0], target[1], fits);
+                }
+                return fits;
             }
             stackOffsets.put(active.spec.anchor(), stackOffset + layout.scaledHeight + SCREEN_MARGIN);
         }

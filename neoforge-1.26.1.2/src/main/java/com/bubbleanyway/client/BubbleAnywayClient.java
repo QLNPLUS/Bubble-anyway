@@ -36,10 +36,10 @@ public final class BubbleAnywayClient {
         }
     }
 
-    /** Register above every vanilla HUD layer, including the chat layer. */
+    /** Register after vanilla HUD layers so the extractor keeps the overlay in a dedicated top layer. */
     public static void registerGuiLayers(RegisterGuiLayersEvent event) {
         event.registerAboveAll(BUBBLE_LAYER_ID, (graphics, partialTick) -> {
-            if (Minecraft.getInstance().screen == null) {
+            if (Minecraft.getInstance().level != null && Minecraft.getInstance().screen == null) {
                 BubbleOverlay.render(graphics, partialTick);
             }
         });

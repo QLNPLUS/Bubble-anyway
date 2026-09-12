@@ -365,7 +365,8 @@ try {
         }
 
         $modsDirectory = Join-Path $target.Instance 'mods'
-        $targetMod = Get-ChildItem $modsDirectory -Filter 'bubble_anyway-*.jar' -File |
+        $targetMod = Get-ChildItem $modsDirectory -File |
+            Where-Object { $_.Name -like 'bubble_anyway-*.jar' -or $_.Name -like 'bubble-anyway-*.jar' } |
             Select-Object -First 1
         if (-not $targetMod) {
             throw "Installed Bubble Anyway JAR not found in $($target.Instance)\mods"
@@ -397,6 +398,7 @@ try {
             $running += $launchResult.Process
             $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
             $reportSeen = $false
+            $reportObservedAt = $null
             $startupSeen = $false
             $text = ''
             $capturePath = Join-Path $reportDirectory ("$($target.Project)-captured-$runStamp.log")
@@ -406,9 +408,12 @@ try {
                     $newReportLine = @($text -split "`r?`n" |
                         Where-Object { $_ -match [regex]::Escape("Bubble Anyway diagnostics [$($target.Loader)] session=") -and
                             $initialDiagnosticLines -notcontains $_ } | Select-Object -First 1)
-                    if ($newReportLine.Count -gt 0) {
+                    if ($newReportLine.Count -gt 0 -and -not $reportSeen) {
                         $reportSeen = $true
+                        $reportObservedAt = Get-Date
                         [IO.File]::WriteAllText($capturePath, $text, [Text.UTF8Encoding]::new($false))
+                    }
+                    if ($reportSeen -and $reportObservedAt -and (Get-Date) -ge $reportObservedAt.AddSeconds(8)) {
                         break
                     }
                     if ($text -match 'Bubble Anyway diagnostics failed') {

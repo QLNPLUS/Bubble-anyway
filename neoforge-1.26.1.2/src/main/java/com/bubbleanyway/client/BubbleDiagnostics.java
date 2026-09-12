@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 public final class BubbleDiagnostics {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String LOADER = "NeoForge 1.26.1.2";
+    private static final String PROBE_ADVANCEMENT = "minecraft:story/mine_stone";
     private static final String SESSION = Long.toHexString(System.nanoTime());
     private static final String[] REQUIRED_THEMES = {
             "bubble_anyway:default",
@@ -30,6 +31,10 @@ public final class BubbleDiagnostics {
     private static boolean testBubbleSent;
     private static boolean worldLoaded;
     private static int ticksSinceWorldLoad;
+    private static int lastScreenWidth = -1;
+    private static int lastScreenHeight = -1;
+    private static int lastActive = -1;
+    private static int lastPending = -1;
 
     private BubbleDiagnostics() {
     }
@@ -41,6 +46,10 @@ public final class BubbleDiagnostics {
             testBubbleSent = false;
             worldLoaded = false;
             ticksSinceWorldLoad = 0;
+            lastScreenWidth = -1;
+            lastScreenHeight = -1;
+            lastActive = -1;
+            lastPending = -1;
             return;
         }
         if (client.level == null) {
@@ -53,17 +62,23 @@ public final class BubbleDiagnostics {
             toastProbeSent = false;
             testBubbleSent = false;
             ticksSinceWorldLoad = 0;
+            lastScreenWidth = -1;
+            lastScreenHeight = -1;
+            lastActive = -1;
+            lastPending = -1;
             return;
         }
         if (!worldLoaded) {
             worldLoaded = true;
             ticksSinceWorldLoad = 0;
         }
-        if (reported || ++ticksSinceWorldLoad < 20) {
+        if (!reported && ++ticksSinceWorldLoad >= 20) {
+            reported = true;
+            runReport(client);
+        }
+        if (!reported) {
             return;
         }
-        reported = true;
-        runReport(client);
     }
 
     private static void runReport(Minecraft client) {
@@ -105,15 +120,15 @@ public final class BubbleDiagnostics {
                 return;
             }
             Object advancements = connection.getClass().getMethod("getAdvancements").invoke(connection);
-            Object key = Identifier.tryParse("minecraft:story/root");
+            Object key = Identifier.tryParse(PROBE_ADVANCEMENT);
             Object holder = advancements.getClass().getMethod("get", key.getClass()).invoke(advancements, key);
             if (!(holder instanceof AdvancementHolder advancementHolder)) {
-                LOGGER.info("  toastProbe: advancement minecraft:story/root is not loaded");
+                LOGGER.info("  toastProbe: advancement {} is not loaded", PROBE_ADVANCEMENT);
                 return;
             }
             Toast toast = new AdvancementToast(advancementHolder);
             client.getToastManager().addToast(toast);
-            LOGGER.info("  toastProbe: queued a synthetic AdvancementToast");
+            LOGGER.info("  toastProbe: queued a synthetic AdvancementToast for {}", PROBE_ADVANCEMENT);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             LOGGER.warn("  toastProbe: could not queue a synthetic AdvancementToast", exception);
         }
@@ -122,6 +137,21 @@ public final class BubbleDiagnostics {
     public static void toastHookReceived(String toastClass) {
         if (BubbleClientConfig.diagnosticsEnabled()) {
             LOGGER.info("Bubble Anyway diagnostics: Toast hook received {}", toastClass);
+        }
+    }
+
+    public static void overlayState(int screenWidth, int screenHeight, int active, int pending) {
+        if (!BubbleClientConfig.diagnosticsEnabled()) {
+            return;
+        }
+        if (screenWidth != lastScreenWidth || screenHeight != lastScreenHeight
+                || active != lastActive || pending != lastPending) {
+            lastScreenWidth = screenWidth;
+            lastScreenHeight = screenHeight;
+            lastActive = active;
+            lastPending = pending;
+            LOGGER.info("Bubble Anyway diagnostics: overlay state screen={}x{}, active={}, pending={}",
+                    screenWidth, screenHeight, active, pending);
         }
     }
 
