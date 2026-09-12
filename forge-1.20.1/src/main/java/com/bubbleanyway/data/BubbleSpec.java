@@ -271,6 +271,143 @@ public final class BubbleSpec {
             String iconId,
             int iconSize,
             int iconGap,
+            int iconOffsetX,
+            int iconOffsetY,
+            int textOffsetX,
+            int textOffsetY,
+            int textColor,
+            int backgroundColor,
+            String backgroundTexture,
+            int backgroundBorder,
+            int backgroundGuide,
+            String sound,
+            float soundVolume,
+            float soundPitch,
+            int x,
+            int y,
+            int width,
+            int height,
+            int maxWidth,
+            int padding,
+            TextAlignment textAlignment,
+            int duration,
+            int fadeIn,
+            int fadeOut,
+            int priority,
+            float scale,
+            boolean bold,
+            boolean italic,
+            boolean underlined,
+            boolean strikethrough,
+            boolean obfuscated,
+            boolean shadow,
+            boolean replace,
+            Anchor anchor,
+            Animation animation) {
+        this(id, text, iconId, iconSize, iconGap,
+                iconOffsetX, iconOffsetY, textOffsetX, textOffsetY,
+                textColor, backgroundColor, backgroundTexture, backgroundBorder, backgroundGuide,
+                sound, soundVolume, soundPitch, x, y, width, height, maxWidth, padding, textAlignment,
+                duration, fadeIn, fadeOut, DEFAULT_SLIDE_IN, DEFAULT_SLIDE_OUT, priority, scale,
+                bold, italic, underlined, strikethrough, obfuscated, shadow, replace, anchor, animation);
+    }
+
+    public BubbleSpec(
+            String id,
+            String text,
+            String iconId,
+            IconType iconType,
+            List<TextPart> textParts,
+            int iconSize,
+            int iconGap,
+            int iconOffsetX,
+            int iconOffsetY,
+            int textOffsetX,
+            int textOffsetY,
+            int textColor,
+            int backgroundColor,
+            String backgroundTexture,
+            int backgroundBorder,
+            int backgroundGuide,
+            String sound,
+            float soundVolume,
+            float soundPitch,
+            int x,
+            int y,
+            int width,
+            int height,
+            int maxWidth,
+            int padding,
+            TextAlignment textAlignment,
+            int duration,
+            int fadeIn,
+            int fadeOut,
+            int slideIn,
+            int slideOut,
+            int priority,
+            float scale,
+            boolean bold,
+            boolean italic,
+            boolean underlined,
+            boolean strikethrough,
+            boolean obfuscated,
+            boolean shadow,
+            boolean replace,
+            Anchor anchor,
+            Animation animation) {
+        this.id = id == null || id.isBlank() ? UUID.randomUUID().toString() : id;
+        this.text = text == null ? "" : text;
+        this.iconId = iconId == null ? "" : iconId;
+        this.iconType = iconType == null ? IconType.AUTO : iconType;
+        this.iconSize = clamp(iconSize, 8, 64);
+        this.iconGap = clamp(iconGap, 0, 64);
+        this.iconOffsetX = clamp(iconOffsetX, -4096, 4096);
+        this.iconOffsetY = clamp(iconOffsetY, -4096, 4096);
+        this.textOffsetX = clamp(textOffsetX, -4096, 4096);
+        this.textOffsetY = clamp(textOffsetY, -4096, 4096);
+        this.textColor = textColor;
+        this.backgroundColor = backgroundColor;
+        this.backgroundTexture = backgroundTexture == null ? "" : backgroundTexture;
+        this.backgroundBorder = clamp(backgroundBorder, 0, 1024);
+        this.backgroundGuide = clamp(backgroundGuide, 0, 16);
+        this.sound = sound == null ? DEFAULT_SOUND : sound;
+        this.soundVolume = clamp(soundVolume, 0.0F, 2.0F);
+        this.soundPitch = clamp(soundPitch, 0.5F, 2.0F);
+        this.x = x;
+        this.y = y;
+        this.width = clamp(width, 0, 4096);
+        this.height = clamp(height, 0, 4096);
+        this.maxWidth = clamp(maxWidth, 40, 4096);
+        this.padding = clamp(padding, 0, 128);
+        this.textAlignment = textAlignment == null ? TextAlignment.LEFT : textAlignment;
+        this.duration = clamp(duration, 1, 20 * 60 * 60);
+        this.fadeIn = clamp(fadeIn, 0, this.duration);
+        this.fadeOut = clamp(fadeOut, 0, this.duration);
+        this.slideIn = clamp(slideIn, 0, this.duration);
+        this.slideOut = clamp(slideOut, 0, this.duration);
+        this.priority = priority;
+        this.scale = clamp(scale, 0.5F, 4.0F);
+        this.bold = bold;
+        this.italic = italic;
+        this.underlined = underlined;
+        this.strikethrough = strikethrough;
+        this.obfuscated = obfuscated;
+        this.shadow = shadow;
+        this.replace = replace;
+        this.anchor = anchor == null ? Anchor.CENTER_TOP : anchor;
+        this.animation = animation == null ? Animation.FADE : animation;
+        this.textParts = textParts == null || textParts.isEmpty()
+                ? List.of(new TextPart(this.text, "", this.textColor, 1.0F, this.bold, this.italic,
+                this.underlined, this.strikethrough, this.obfuscated, this.shadow))
+                : List.copyOf(textParts);
+    }
+
+    public BubbleSpec(
+            String id,
+            String text,
+            String iconId,
+            int iconSize,
+            int iconGap,
             int textColor,
             int backgroundColor,
             String backgroundTexture,
