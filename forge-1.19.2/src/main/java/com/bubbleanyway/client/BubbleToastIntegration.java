@@ -155,6 +155,7 @@ public final class BubbleToastIntegration {
     private static JsonObject baseOverrides(String id, String fallbackId) {
         JsonObject overrides = new JsonObject();
         overrides.addProperty("id", id + "_" + fallbackId);
+        overrides.addProperty("layer", BubbleSpec.RenderLayer.ABOVE_PAUSE.name());
         return overrides;
     }
 

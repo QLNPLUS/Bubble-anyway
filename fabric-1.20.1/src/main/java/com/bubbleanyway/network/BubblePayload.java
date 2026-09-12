@@ -61,7 +61,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
                 buffer.readBoolean(),
                 BubbleSpec.Anchor.parse(buffer.readString(32)),
                 BubbleSpec.Animation.parse(buffer.readString(32)));
-        return show(spec);
+        return show(spec.withRenderLayer(BubbleSpec.RenderLayer.parse(buffer.readString(32))));
     }
 
     public static void encode(PacketByteBuf buffer, BubblePayload payload) {
@@ -113,5 +113,6 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
         buffer.writeBoolean(spec.replace());
         buffer.writeString(spec.anchor().name(), 32);
         buffer.writeString(spec.animation().name(), 32);
+        buffer.writeString(spec.renderLayer().name(), 32);
     }
 }

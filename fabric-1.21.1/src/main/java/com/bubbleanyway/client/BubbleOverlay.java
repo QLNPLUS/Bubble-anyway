@@ -28,7 +28,8 @@ import net.minecraft.sound.SoundEvent;
 public final class BubbleOverlay {
     private static final int SCREEN_MARGIN = 6;
     private static final float MIN_RENDER_ALPHA = 0.02F;
-    private static final float LAYER_Z = 1000.0F;
+    private static final float BELOW_PAUSE_Z = -1000.0F;
+    private static final float ABOVE_PAUSE_Z = 1000.0F;
     private static final List<ActiveBubble> ACTIVE = new ArrayList<>();
     private static final List<QueuedBubble> PENDING = new ArrayList<>();
     private static final Map<Identifier, TextureSize> TEXTURE_SIZES = new HashMap<>();
@@ -90,6 +91,10 @@ public final class BubbleOverlay {
     }
 
     public static void render(DrawContext context, float partialTick) {
+        render(context, partialTick, null);
+    }
+
+    public static void render(DrawContext context, float partialTick, BubbleSpec.RenderLayer layer) {
         renderCallbackSeen = true;
         MinecraftClient minecraft = MinecraftClient.getInstance();
         if (minecraft.world == null) {
@@ -103,6 +108,9 @@ public final class BubbleOverlay {
         boolean paused = minecraft.isPaused();
         long now = animationNow(paused);
         List<ActiveBubble> visible = snapshot(now, textRenderer, screenWidth, screenHeight);
+        if (layer != null) {
+            visible = visible.stream().filter(active -> active.spec().renderLayer() == layer).toList();
+        }
         if (visible.isEmpty()) {
             return;
         }
@@ -112,7 +120,8 @@ public final class BubbleOverlay {
         Map<ActiveBubble, BubbleLayout> layouts = new HashMap<>();
         Map<ActiveBubble, ResolvedIcon> icons = new HashMap<>();
         context.getMatrices().push();
-        context.getMatrices().translate(0.0F, 0.0F, LAYER_Z);
+        context.getMatrices().translate(0.0F, 0.0F,
+                layer == BubbleSpec.RenderLayer.BELOW_PAUSE ? BELOW_PAUSE_Z : ABOVE_PAUSE_Z);
         for (ActiveBubble active : visible) {
             ResolvedIcon icon = resolveIcon(active.spec());
             BubbleLayout layout = BubbleLayout.create(textRenderer, active.spec(), screenWidth, !icon.isEmpty());
@@ -148,9 +157,7 @@ public final class BubbleOverlay {
             int screenWidth,
             int screenHeight) {
         ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec().duration());
-        if (!MinecraftClient.getInstance().isPaused()) {
-            promotePending(now, textRenderer, screenWidth, screenHeight);
-        }
+        promotePending(now, textRenderer, screenWidth, screenHeight);
         return List.copyOf(ACTIVE);
     }
 
@@ -159,7 +166,7 @@ public final class BubbleOverlay {
         if (!clockInitialized) {
             clockInitialized = true;
             logicalNow = wallNow;
-        } else if (!paused) {
+        } else {
             logicalNow += Math.max(0L, wallNow - wallClockNow);
         }
         wallClockNow = wallNow;

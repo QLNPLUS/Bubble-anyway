@@ -155,6 +155,8 @@ public final class BubbleToastIntegration {
     private static JsonObject baseOverrides(String id, String fallbackId) {
         JsonObject overrides = new JsonObject();
         overrides.addProperty("id", id + "_" + fallbackId);
+        // Keep converted Toasts above the pause screen even when an older local theme file is used.
+        overrides.addProperty("layer", BubbleSpec.RenderLayer.ABOVE_PAUSE.name());
         return overrides;
     }
 

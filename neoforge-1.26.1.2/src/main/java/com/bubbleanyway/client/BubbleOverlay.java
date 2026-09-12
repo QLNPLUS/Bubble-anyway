@@ -97,11 +97,15 @@ public final class BubbleOverlay {
     }
 
     public static void render(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
-        renderInternal(graphics);
+        renderInternal(graphics, null);
     }
 
     public static void render(GuiGraphicsExtractor graphics, float partialTick) {
-        renderInternal(graphics);
+        renderInternal(graphics, null);
+    }
+
+    public static void render(GuiGraphicsExtractor graphics, float partialTick, BubbleSpec.RenderLayer layer) {
+        renderInternal(graphics, layer);
     }
 
     public static synchronized int activeCount() {
@@ -116,7 +120,7 @@ public final class BubbleOverlay {
         return renderCallbackLogged;
     }
 
-    private static void renderInternal(GuiGraphicsExtractor graphics) {
+    private static void renderInternal(GuiGraphicsExtractor graphics, BubbleSpec.RenderLayer layer) {
         if (!renderCallbackLogged) {
             LOGGER.info("Bubble Anyway GUI layer render callback is active");
             renderCallbackLogged = true;
@@ -133,6 +137,9 @@ public final class BubbleOverlay {
         long now = animationNow(minecraft.isPaused());
         Font font = minecraft.font;
         List<ActiveBubble> visible = snapshot(now, font, screenWidth, screenHeight);
+        if (layer != null) {
+            visible = visible.stream().filter(active -> active.spec.renderLayer() == layer).toList();
+        }
         if (visible.isEmpty()) {
             return;
         }
@@ -168,9 +175,7 @@ public final class BubbleOverlay {
             int screenWidth,
             int screenHeight) {
         ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec.duration());
-        if (!Minecraft.getInstance().isPaused()) {
-            promotePending(now, font, screenWidth, screenHeight);
-        }
+        promotePending(now, font, screenWidth, screenHeight);
         return List.copyOf(ACTIVE);
     }
 
@@ -179,7 +184,7 @@ public final class BubbleOverlay {
         if (!clockInitialized) {
             clockInitialized = true;
             logicalNow = wallNow;
-        } else if (!paused) {
+        } else {
             logicalNow += Math.max(0L, wallNow - wallClockNow);
         }
         wallClockNow = wallNow;

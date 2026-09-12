@@ -32,7 +32,8 @@ public final class BubbleOverlay {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int SCREEN_MARGIN = 6;
     private static final float MIN_RENDER_ALPHA = 0.02F;
-    private static final float LAYER_Z = 1000.0F;
+    private static final float BELOW_PAUSE_Z = -1000.0F;
+    private static final float ABOVE_PAUSE_Z = 1000.0F;
     // Item icons are explicitly rendered back into their bubble layer below.
     private static final float BUBBLE_LAYER_STEP = 1.0F;
     private static final List<ActiveBubble> ACTIVE = new ArrayList<>();
@@ -101,11 +102,15 @@ public final class BubbleOverlay {
     }
 
     public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
-        renderInternal(graphics);
+        renderInternal(graphics, null);
     }
 
     public static void render(GuiGraphics graphics, float partialTick) {
-        renderInternal(graphics);
+        renderInternal(graphics, null);
+    }
+
+    public static void render(GuiGraphics graphics, float partialTick, BubbleSpec.RenderLayer layer) {
+        renderInternal(graphics, layer);
     }
 
     public static synchronized int activeCount() {
@@ -120,7 +125,7 @@ public final class BubbleOverlay {
         return renderCallbackLogged;
     }
 
-    private static void renderInternal(GuiGraphics graphics) {
+    private static void renderInternal(GuiGraphics graphics, BubbleSpec.RenderLayer layer) {
         if (!renderCallbackLogged) {
             LOGGER.info("Bubble Anyway GUI layer render callback is active");
             renderCallbackLogged = true;
@@ -136,6 +141,9 @@ public final class BubbleOverlay {
         long now = animationNow(minecraft.isPaused());
         Font font = minecraft.font;
         List<ActiveBubble> visible = snapshot(now, font, screenWidth, screenHeight);
+        if (layer != null) {
+            visible = visible.stream().filter(active -> active.spec.renderLayer() == layer).toList();
+        }
         if (visible.isEmpty()) {
             return;
         }
@@ -155,7 +163,8 @@ public final class BubbleOverlay {
         for (RenderBubble bubble : renderBubbles) {
             renderBubble(minecraft, graphics, font, bubble,
                     now,
-                    LAYER_Z + layerIndex++ * BUBBLE_LAYER_STEP);
+                    (layer == BubbleSpec.RenderLayer.BELOW_PAUSE ? BELOW_PAUSE_Z : ABOVE_PAUSE_Z)
+                            + layerIndex++ * BUBBLE_LAYER_STEP);
         }
         flushBubble(graphics);
         RenderSystem.enableDepthTest();
@@ -167,9 +176,7 @@ public final class BubbleOverlay {
             int screenWidth,
             int screenHeight) {
         ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec.duration());
-        if (!Minecraft.getInstance().isPaused()) {
-            promotePending(now, font, screenWidth, screenHeight);
-        }
+        promotePending(now, font, screenWidth, screenHeight);
         return List.copyOf(ACTIVE);
     }
 
@@ -178,7 +185,7 @@ public final class BubbleOverlay {
         if (!clockInitialized) {
             clockInitialized = true;
             logicalNow = wallNow;
-        } else if (!paused) {
+        } else {
             logicalNow += Math.max(0L, wallNow - wallClockNow);
         }
         wallClockNow = wallNow;

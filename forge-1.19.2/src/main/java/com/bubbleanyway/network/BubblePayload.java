@@ -71,6 +71,7 @@ public final class BubblePayload {
         buffer.writeBoolean(spec.replace());
         buffer.writeUtf(spec.anchor().name(), 32);
         buffer.writeUtf(spec.animation().name(), 32);
+        buffer.writeUtf(spec.renderLayer().name(), 32);
     }
 
     public static BubblePayload decode(FriendlyByteBuf buffer) {
@@ -127,7 +128,7 @@ public final class BubblePayload {
                 buffer.readBoolean(),
                 BubbleSpec.Anchor.parse(buffer.readUtf(32)),
                 BubbleSpec.Animation.parse(buffer.readUtf(32)));
-        return show(spec);
+        return show(spec.withRenderLayer(BubbleSpec.RenderLayer.parse(buffer.readUtf(32))));
     }
 
     public static void handle(BubblePayload payload, Supplier<NetworkEvent.Context> contextSupplier) {

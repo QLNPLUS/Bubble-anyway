@@ -28,7 +28,8 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 public final class BubbleOverlay {
     private static final int SCREEN_MARGIN = 6;
     private static final float MIN_RENDER_ALPHA = 0.02F;
-    private static final float LAYER_Z = 1000.0F;
+    private static final float BELOW_PAUSE_Z = -1000.0F;
+    private static final float ABOVE_PAUSE_Z = 1000.0F;
     // Item icons are explicitly rendered back into their bubble layer below.
     private static final float BUBBLE_LAYER_STEP = 1.0F;
     private static final List<ActiveBubble> ACTIVE = new ArrayList<>();
@@ -96,6 +97,15 @@ public final class BubbleOverlay {
     }
 
     public static void renderTop(GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
+        renderTop(graphics, partialTick, screenWidth, screenHeight, null);
+    }
+
+    public static void renderTop(
+            GuiGraphics graphics,
+            float partialTick,
+            int screenWidth,
+            int screenHeight,
+            BubbleSpec.RenderLayer layer) {
         renderCallbackSeen = true;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
@@ -116,18 +126,28 @@ public final class BubbleOverlay {
         RenderSystem.disableDepthTest();
 
         List<RenderBubble> renderBubbles = buildPlacements(visible, font, screenWidth, screenHeight);
+        if (layer != null) {
+            renderBubbles.removeIf(bubble -> bubble.active.spec.renderLayer() != layer);
+        }
+        if (renderBubbles.isEmpty()) {
+            RenderSystem.enableDepthTest();
+            return;
+        }
 
         // Draw lower-priority/older bubbles first. The later draw call is the visible top layer
         // whenever two bubble rectangles overlap.
         renderBubbles.sort(Comparator.comparingInt((RenderBubble bubble) -> bubble.active.spec.priority())
                 .thenComparingLong(bubble -> bubble.active.sequence));
+        float layerZ = layer == BubbleSpec.RenderLayer.BELOW_PAUSE
+                ? BELOW_PAUSE_Z
+                : ABOVE_PAUSE_Z;
         int layerIndex = 0;
         for (RenderBubble bubble : renderBubbles) {
             renderBubble(minecraft, graphics, font, bubble,
                     now,
-                    LAYER_Z + layerIndex++ * BUBBLE_LAYER_STEP);
+                    layerZ + layerIndex++ * BUBBLE_LAYER_STEP);
         }
-        flushBubble(graphics);
+        flushBubble(minecraft, graphics);
         RenderSystem.enableDepthTest();
     }
 
@@ -149,9 +169,7 @@ public final class BubbleOverlay {
             int screenWidth,
             int screenHeight) {
         ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec.duration());
-        if (!Minecraft.getInstance().isPaused()) {
-            promotePending(now, font, screenWidth, screenHeight);
-        }
+        promotePending(now, font, screenWidth, screenHeight);
         return List.copyOf(ACTIVE);
     }
 
@@ -160,7 +178,7 @@ public final class BubbleOverlay {
         if (!clockInitialized) {
             clockInitialized = true;
             logicalNow = wallNow;
-        } else if (!paused) {
+        } else {
             logicalNow += Math.max(0L, wallNow - wallClockNow);
         }
         wallClockNow = wallNow;
@@ -323,9 +341,6 @@ public final class BubbleOverlay {
             graphics.fill(0, 0, layout.width, layout.height, withAlpha(spec.backgroundColor(), alpha));
         }
 
-        // Commit the background before this bubble's icon/text and before the next bubble starts.
-        flushBubble(graphics);
-
         if (!icon.isEmpty()) {
             int iconY = spec.padding() + Math.max(0,
                     (layout.height - spec.padding() * 2 - layout.iconSize) / 2);
@@ -354,7 +369,9 @@ public final class BubbleOverlay {
             }
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             graphics.pose().popPose();
-            flushBubble(graphics);
+            // Item rendering flushes GuiGraphics internally and restores depth testing.
+            // Re-enter the overlay state before drawing this bubble's text.
+            RenderSystem.disableDepthTest();
         }
 
         int textY = spec.padding() + spec.textOffsetY();
@@ -379,17 +396,23 @@ public final class BubbleOverlay {
             }
             textY += line.height(font);
         }
-        // Keep each bubble as one complete render unit. Without this flush, text from every
-        // bubble remains queued until the end of the overlay and can appear above later bubbles'
-        // backgrounds when their rectangles overlap.
-        flushBubble(graphics);
+        // Keep each bubble as one complete render unit. Flushing only here prevents a Screen
+        // render from being inserted between this bubble's background, icon, and text.
+        flushBubble(minecraft, graphics);
         graphics.pose().popPose();
     }
 
-    private static void flushBubble(GuiGraphics graphics) {
+    private static void flushBubble(Minecraft minecraft, GuiGraphics graphics) {
         graphics.flush();
-        // renderItem() uses GuiGraphics' own buffer source. Reassert the overlay state after
-        // Minecraft's item renderer restores depth testing.
+        // GuiGraphics normally owns the same buffer as Minecraft, but explicitly finish both
+        // paths so a Screen cannot observe a partially submitted bubble on loader/modded paths.
+        var guiBuffer = graphics.bufferSource();
+        guiBuffer.endBatch();
+        var minecraftBuffer = minecraft.renderBuffers().bufferSource();
+        if (minecraftBuffer != guiBuffer) {
+            minecraftBuffer.endBatch();
+        }
+        // Reassert the overlay state after Minecraft's item renderer restores depth testing.
         RenderSystem.disableDepthTest();
     }
 

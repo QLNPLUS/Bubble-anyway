@@ -105,6 +105,7 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | slideIn | 整数 | 8 | 0 到 duration | 滑入时长，单位为 tick；仅对 `SLIDE_FROM_*` 生效。 |
 | slideOut | 整数 | 12 | 0 到 duration | 滑出时长，单位为 tick；仅对 `SLIDE_FROM_*` 生效，设为 0 可禁用滑出。 |
 | priority | 整数 | 0 | 任意整数 | 显示优先级。数值越大，优先级越高。 |
+| layer | 字符串 | BELOW_PAUSE | BELOW_PAUSE、ABOVE_PAUSE | 暂停页面层级。普通气泡默认在暂停页面下方；成就、配方和 FTB Toast 接管气泡自动使用 `ABOVE_PAUSE`。 |
 | fontSize | 小数 | 1.0 | 0.5 到 4.0 | 字体和气泡整体缩放倍数。 |
 | scale | 小数 | 1.0 | 同 fontSize | fontSize 的兼容别名。 |
 | bold | 布尔值 | false | true、false | 粗体。 |
@@ -465,7 +466,7 @@ Fabric 使用相同路径和字段。启用 `diagnosticsEnabled` 后进入世界
 
 脚本会使用本地实例启动各版本、临时打开诊断、进入世界并收集报告，测试结束后恢复原配置。Forge 1.19.2 的启动参数不支持自动进入单人世界，因此该版本默认执行启动级测试；其余版本会执行世界级诊断。脚本生成的报告只用于本地排查，不属于发布包。
 
-暂停游戏时，活动气泡会暂停计时，等待队列不会继续晋级；退出世界时活动和等待中的气泡都会清空。
+暂停页面打开时，气泡计时和等待队列仍会继续运行，行为接近原版 Toast；普通气泡位于暂停页面下方，设置 `layer: 'ABOVE_PAUSE'` 的气泡位于暂停页面上方。成就、配方和 FTB Quests Toast 接管气泡会自动使用 `ABOVE_PAUSE`。退出世界时活动和等待中的气泡都会清空。
 
 ## 指令
 

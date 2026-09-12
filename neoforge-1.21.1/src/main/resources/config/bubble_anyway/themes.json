@@ -53,6 +53,7 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 300,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     },
     "bubble_anyway:toast_advancement_goal": {
@@ -74,6 +75,7 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 310,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     },
     "bubble_anyway:toast_advancement_challenge": {
@@ -95,6 +97,7 @@
       "slideOut": 14,
       "duration": 120,
       "priority": 320,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     },
     "bubble_anyway:toast_recipe": {
@@ -116,6 +119,7 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 280,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     },
     "bubble_anyway:toast_ftb_completion": {
@@ -137,6 +141,7 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 330,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     },
     "bubble_anyway:toast_ftb_reward": {
@@ -158,6 +163,7 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 325,
+      "layer": "ABOVE_PAUSE",
       "shadow": true
     }
   }

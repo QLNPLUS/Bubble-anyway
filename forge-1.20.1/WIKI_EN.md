@@ -120,6 +120,7 @@ theme definition. A theme may be partial. Missing values use the mod defaults.
 | `slideIn` | integer | `8` | Slide-in duration for `SLIDE_FROM_*` animations. |
 | `slideOut` | integer | `12` | Slide-out duration for `SLIDE_FROM_*` animations. 0 disables slide-out. |
 | `priority` | integer | `0` | Higher values are rendered first in the placement order and take queue priority. |
+| `layer` | string | `BELOW_PAUSE` | `BELOW_PAUSE` or `ABOVE_PAUSE`. Ordinary bubbles stay below the pause screen by default; converted advancement, recipe, and FTB Toasts use `ABOVE_PAUSE`. |
 | `fontSize` | float | `1.0` | Overall text and bubble scale, from 0.5 to 4.0. |
 | `scale` | float | `1.0` | Compatibility alias for `fontSize`. |
 | `bold` | boolean | `false` | Bold text. |
@@ -408,9 +409,12 @@ Each bubble commits its background before its icon and text, and later bubbles
 are rendered as later layers. This prevents text or icons from remaining on top
 of a background that should cover them.
 
-During pause, active bubble timers and pending promotion stop. Leaving a world
-clears both active and pending bubbles, so notifications do not continue after
-the world has been closed.
+During pause, active bubble timers and pending promotion continue. Ordinary
+bubbles stay below the pause screen by default; bubbles with `layer:
+ABOVE_PAUSE` render above it. Converted advancement, recipe, and FTB Quests
+Toast bubbles use `ABOVE_PAUSE` automatically. Leaving a world clears both
+active and pending bubbles, so notifications do not continue after the world
+has been closed.
 
 NeoForge 1.21.1 renders after the vanilla `SAVING_INDICATOR` HUD layer, which
 is after chat and the hotbar. Other loaders use their corresponding high-

@@ -59,7 +59,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
                     buffer.readBoolean(),
                     BubbleSpec.Anchor.parse(buffer.readUtf(32)),
                     BubbleSpec.Animation.parse(buffer.readUtf(32)));
-            return new BubblePayload(spec, false);
+            return new BubblePayload(spec.withRenderLayer(BubbleSpec.RenderLayer.parse(buffer.readUtf(32))), false);
         }
 
         @Override
@@ -112,6 +112,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) implements CustomPac
             buffer.writeBoolean(spec.replace());
             buffer.writeUtf(spec.anchor().name(), 32);
             buffer.writeUtf(spec.animation().name(), 32);
+            buffer.writeUtf(spec.renderLayer().name(), 32);
         }
     };
 

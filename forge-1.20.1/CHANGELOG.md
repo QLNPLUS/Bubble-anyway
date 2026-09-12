@@ -1,5 +1,13 @@
+## 1.2.0
+
+- Synchronized pause-screen render layers across the multi-loader builds.
+- Added explicit below-pause and above-pause rendering for ordinary bubbles and converted Toasts.
+- Updated network payload compatibility and built-in theme defaults.
+- Expanded diagnostics for theme loading, Toast interception, icon conversion, and pause behavior.
+
 ## 1.1.0
 
+- Added configurable pause-screen render layers. Ordinary bubbles stay below the pause screen; converted Toast bubbles stay above it.
 - Added optional diagnostics and automated startup/world smoke-test support.
 - Fixed rapid multi-bubble admission and layered rendering behavior.
 - Added advancement, recipe, and FTB Quests toast conversion support.

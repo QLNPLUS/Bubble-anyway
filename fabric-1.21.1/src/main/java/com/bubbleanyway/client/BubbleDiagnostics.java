@@ -81,7 +81,7 @@ public final class BubbleDiagnostics {
             for (String themeId : REQUIRED_THEMES) {
                 LOGGER.info("  theme: {}={}", themeId, themeStatus(themeId));
             }
-            LOGGER.info("  pause: promotion is blocked while paused; world exit clears active and pending bubbles");
+            LOGGER.info("  pause: timers and queue promotion continue while paused; ordinary bubbles stay below the pause screen and Toast bubbles can render above it");
             runToastProbe(client);
             if (BubbleClientConfig.showDiagnosticBubble() && !testBubbleSent) {
                 String themeId = BubbleThemeClientCache.hasTheme("bubble_anyway:default")

@@ -75,6 +75,7 @@ public final class BubbleSpec {
     private final boolean replace;
     private final Anchor anchor;
     private final Animation animation;
+    private final RenderLayer renderLayer;
 
     public BubbleSpec(
             String id,
@@ -207,10 +208,61 @@ public final class BubbleSpec {
         this.replace = replace;
         this.anchor = anchor == null ? Anchor.CENTER_TOP : anchor;
         this.animation = animation == null ? Animation.FADE : animation;
+        this.renderLayer = RenderLayer.BELOW_PAUSE;
         this.textParts = textParts == null || textParts.isEmpty()
                 ? List.of(new TextPart(this.text, "", this.textColor, 1.0F, this.bold, this.italic,
                 this.underlined, this.strikethrough, this.obfuscated, this.shadow))
                 : List.copyOf(textParts);
+    }
+
+    private BubbleSpec(BubbleSpec source, RenderLayer renderLayer) {
+        this.id = source.id;
+        this.text = source.text;
+        this.iconId = source.iconId;
+        this.iconType = source.iconType;
+        this.textParts = source.textParts;
+        this.iconSize = source.iconSize;
+        this.iconGap = source.iconGap;
+        this.iconOffsetX = source.iconOffsetX;
+        this.iconOffsetY = source.iconOffsetY;
+        this.textOffsetX = source.textOffsetX;
+        this.textOffsetY = source.textOffsetY;
+        this.textColor = source.textColor;
+        this.backgroundColor = source.backgroundColor;
+        this.backgroundTexture = source.backgroundTexture;
+        this.backgroundBorder = source.backgroundBorder;
+        this.backgroundGuide = source.backgroundGuide;
+        this.sound = source.sound;
+        this.soundVolume = source.soundVolume;
+        this.soundPitch = source.soundPitch;
+        this.x = source.x;
+        this.y = source.y;
+        this.width = source.width;
+        this.height = source.height;
+        this.maxWidth = source.maxWidth;
+        this.padding = source.padding;
+        this.textAlignment = source.textAlignment;
+        this.duration = source.duration;
+        this.fadeIn = source.fadeIn;
+        this.fadeOut = source.fadeOut;
+        this.slideIn = source.slideIn;
+        this.slideOut = source.slideOut;
+        this.priority = source.priority;
+        this.scale = source.scale;
+        this.bold = source.bold;
+        this.italic = source.italic;
+        this.underlined = source.underlined;
+        this.strikethrough = source.strikethrough;
+        this.obfuscated = source.obfuscated;
+        this.shadow = source.shadow;
+        this.replace = source.replace;
+        this.anchor = source.anchor;
+        this.animation = source.animation;
+        this.renderLayer = renderLayer == null ? RenderLayer.BELOW_PAUSE : renderLayer;
+    }
+
+    public BubbleSpec withRenderLayer(RenderLayer layer) {
+        return new BubbleSpec(this, layer);
     }
 
     public BubbleSpec(
@@ -413,7 +465,8 @@ public final class BubbleSpec {
                 shadow,
                 bool(object, "replace", true),
                 Anchor.parse(string(object, "anchor", "CENTER_TOP")),
-                Animation.parse(string(object, "animation", "FADE")));
+                Animation.parse(string(object, "animation", "FADE")))
+                .withRenderLayer(RenderLayer.parse(string(object, "layer", "BELOW_PAUSE")));
     }
 
     public static BubbleSpec simple(String text) {
@@ -544,6 +597,7 @@ public final class BubbleSpec {
     public boolean obfuscated() { return obfuscated; }
     public boolean shadow() { return shadow; }
     public boolean replace() { return replace; }
+    public RenderLayer renderLayer() { return renderLayer; }
     public Anchor anchor() { return anchor; }
     public Animation animation() { return animation; }
 
@@ -605,6 +659,26 @@ public final class BubbleSpec {
                 return valueOf(value.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_'));
             } catch (IllegalArgumentException exception) {
                 return AUTO;
+            }
+        }
+    }
+
+    public enum RenderLayer {
+        BELOW_PAUSE,
+        ABOVE_PAUSE;
+
+        public static RenderLayer parse(String value) {
+            try {
+                String normalized = value.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+                if (normalized.equals("BELOW_SCREEN") || normalized.equals("NORMAL")) {
+                    normalized = "BELOW_PAUSE";
+                }
+                if (normalized.equals("ABOVE_SCREEN") || normalized.equals("TOAST")) {
+                    normalized = "ABOVE_PAUSE";
+                }
+                return valueOf(normalized);
+            } catch (IllegalArgumentException exception) {
+                return BELOW_PAUSE;
             }
         }
     }

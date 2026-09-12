@@ -17,8 +17,17 @@ public final class BubbleAnywayClient {
     public BubbleAnywayClient(IEventBus modEventBus) {
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::replaceToast);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderHudLayerPost);
+        NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderScreenPre);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderScreenPost);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::clientTick);
+    }
+
+    public static void renderScreenPre(ScreenEvent.Render.Pre event) {
+        if (Minecraft.getInstance().level != null
+                && event.getScreen() instanceof net.minecraft.client.gui.screens.PauseScreen) {
+            BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick(),
+                    com.bubbleanyway.data.BubbleSpec.RenderLayer.BELOW_PAUSE);
+        }
     }
 
     /** Render after vanilla's last HUD layer, including chat and the hotbar. */
@@ -36,7 +45,12 @@ public final class BubbleAnywayClient {
     /** Render after the current screen so bubbles stay visible over mod GUIs. */
     public static void renderScreenPost(ScreenEvent.Render.Post event) {
         if (Minecraft.getInstance().screen != null) {
-            BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick());
+            if (event.getScreen() instanceof net.minecraft.client.gui.screens.PauseScreen) {
+                BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick(),
+                        com.bubbleanyway.data.BubbleSpec.RenderLayer.ABOVE_PAUSE);
+            } else {
+                BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick());
+            }
         }
     }
 

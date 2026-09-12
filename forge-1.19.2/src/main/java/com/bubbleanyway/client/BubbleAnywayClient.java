@@ -2,6 +2,7 @@ package com.bubbleanyway.client;
 
 import com.bubbleanyway.BubbleAnyway;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.ScreenEvent;
@@ -13,6 +14,21 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = BubbleAnyway.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class BubbleAnywayClient {
     private BubbleAnywayClient() {
+    }
+
+    @SubscribeEvent
+    public static void renderScreenPre(ScreenEvent.Render.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || !(event.getScreen() instanceof PauseScreen)) {
+            return;
+        }
+
+        BubbleOverlay.renderTop(
+                event.getPoseStack(),
+                event.getPartialTick(),
+                event.getScreen().width,
+                event.getScreen().height,
+                com.bubbleanyway.data.BubbleSpec.RenderLayer.BELOW_PAUSE);
     }
 
     @SubscribeEvent
@@ -33,6 +49,16 @@ public final class BubbleAnywayClient {
     public static void renderScreen(ScreenEvent.Render.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) {
+            return;
+        }
+
+        if (event.getScreen() instanceof PauseScreen) {
+            BubbleOverlay.renderTop(
+                    event.getPoseStack(),
+                    event.getPartialTick(),
+                    event.getScreen().width,
+                    event.getScreen().height,
+                    com.bubbleanyway.data.BubbleSpec.RenderLayer.ABOVE_PAUSE);
             return;
         }
 

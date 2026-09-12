@@ -13,8 +13,11 @@ public final class BubbleAnywayClient implements ClientModInitializer {
     public void onInitializeClient() {
         BubbleThemeClientCache.setThemeRequester(themeId ->
                 ClientPlayNetworking.send(com.bubbleanyway.network.BubbleThemeRequestPayload.request(themeId)));
-        HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
-                BubbleOverlay.render(drawContext, tickCounter.getTickDelta(false)));
+        HudRenderCallback.EVENT.register((drawContext, tickCounter) -> {
+            if (net.minecraft.client.MinecraftClient.getInstance().currentScreen == null) {
+                BubbleOverlay.render(drawContext, tickCounter.getTickDelta(false));
+            }
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             BubbleOverlay.clientTick(client);
             BubbleDiagnostics.clientTick(client);

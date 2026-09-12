@@ -210,6 +210,19 @@ function Restore-Config($backup) {
     [IO.File]::WriteAllText($backup.Path, $backup.Original, [Text.UTF8Encoding]::new($false))
 }
 
+function Get-ProjectVersion($project) {
+    $propertiesPath = Join-Path $repoRoot ($project + "\gradle.properties")
+    if (-not (Test-Path -LiteralPath $propertiesPath)) {
+        throw "Missing gradle.properties: $propertiesPath"
+    }
+    $line = Select-String -LiteralPath $propertiesPath -Pattern '^mod_version\s*=\s*(.+)$' |
+        Select-Object -First 1
+    if (-not $line) {
+        throw "Missing mod_version in $propertiesPath"
+    }
+    return $line.Matches[0].Groups[1].Value.Trim()
+}
+
 function Get-LaunchArguments($target, $version) {
     $libraryRoot = Join-Path $minecraftRoot "libraries"
     $classpathEntries = @()
@@ -323,26 +336,49 @@ function Stop-MinecraftTest($process) {
 
 New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
 $backups = @{}
+$modBackups = @{}
 $running = @()
 $results = @()
 
 try {
     foreach ($target in $targets) {
         Write-Host "=== Testing $($target.Loader) ==="
-        $sourceJar = Get-ChildItem (Join-Path $repoRoot ($target.Project + "\build\libs")) -Filter "*1.1.0*.jar" -File |
+        $expectedVersion = Get-ProjectVersion $target.Project
+        $sourceJar = Get-ChildItem (Join-Path $repoRoot ($target.Project + "\build\libs")) -Filter "*$expectedVersion*.jar" -File -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notlike '*sources*' } |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
         if (-not $sourceJar) {
-            throw "Build JAR not found for $($target.Project)"
+            $results += [pscustomobject]@{
+                Loader = $target.Loader
+                Project = $target.Project
+                Instance = $target.Instance
+                Status = 'BUILD_ARTIFACT_MISSING'
+                Message = "No build/libs JAR found for mod_version=$expectedVersion"
+                ClasspathEntries = 0
+                ProcessExited = $null
+                LogPath = $null
+                CapturePath = $null
+            }
+            Write-Warning "Skipping $($target.Project): no $expectedVersion JAR"
+            continue
         }
 
-        $targetMod = Get-ChildItem (Join-Path $target.Instance 'mods') -Filter 'bubble_anyway-*.jar' -File |
+        $modsDirectory = Join-Path $target.Instance 'mods'
+        $targetMod = Get-ChildItem $modsDirectory -Filter 'bubble_anyway-*.jar' -File |
             Select-Object -First 1
         if (-not $targetMod) {
             throw "Installed Bubble Anyway JAR not found in $($target.Instance)\mods"
         }
-        Copy-Item -LiteralPath $sourceJar.FullName -Destination $targetMod.FullName -Force
+        $installedJar = Join-Path $modsDirectory ("bubble_anyway-{0}.jar" -f $expectedVersion)
+        $backupJar = Join-Path $reportDirectory ("{0}-installed-backup-{1}.jar" -f $target.Project, $runStamp)
+        Move-Item -LiteralPath $targetMod.FullName -Destination $backupJar -Force
+        Copy-Item -LiteralPath $sourceJar.FullName -Destination $installedJar -Force
+        $modBackups[$target.Project] = [pscustomobject]@{
+            OriginalPath = $targetMod.FullName
+            InstalledPath = $installedJar
+            BackupPath = $backupJar
+        }
 
         $backup = Set-DiagnosticsConfig $target
         $backups[$backup.Path] = $backup
@@ -436,6 +472,14 @@ try {
 } finally {
     foreach ($process in @($running)) {
         Stop-MinecraftTest $process
+    }
+    foreach ($backup in $modBackups.Values) {
+        if (Test-Path -LiteralPath $backup.InstalledPath) {
+            Move-Item -LiteralPath $backup.InstalledPath -Destination (Join-Path $reportDirectory ([IO.Path]::GetFileName($backup.InstalledPath) + '.tested')) -Force
+        }
+        if (Test-Path -LiteralPath $backup.BackupPath) {
+            Move-Item -LiteralPath $backup.BackupPath -Destination $backup.OriginalPath -Force
+        }
     }
     if (-not $KeepDiagnosticConfig) {
         foreach ($backup in $backups.Values) {
