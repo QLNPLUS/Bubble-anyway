@@ -43,8 +43,12 @@ jobs:
         id: matrix
         env:
           TARGET: ${{ inputs.target || 'all' }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
         shell: bash
         run: |
+          if [ "$GITHUB_EVENT_NAME" = "release" ] && [[ "$RELEASE_VERSION" == neoforge-26.1.2-v* ]]; then
+            TARGET=neoforge-26.1.2
+          fi
           case "$TARGET" in
             all|"")
               matrix='{"include":[{"target":"forge-1.19.2","path":"forge-1.19.2","loader":"forge","game_version":"1.19.2","java":"17"},{"target":"forge-1.20.1","path":"forge-1.20.1","loader":"forge","game_version":"1.20.1","java":"17"},{"target":"neoforge-1.21.1","path":"neoforge-1.21.1","loader":"neoforge","game_version":"1.21.1","java":"21"},{"target":"neoforge-26.1.2","path":"neoforge-1.26.1.2","loader":"neoforge","game_version":"26.1.2","java":"25"},{"target":"fabric-1.20.1","path":"fabric-1.20.1","loader":"fabric","game_version":"1.20.1","java":"17"},{"target":"fabric-1.21.1","path":"fabric-1.21.1","loader":"fabric","game_version":"1.21.1","java":"21"}]}'
@@ -101,7 +105,11 @@ jobs:
       - name: Prepare release version
         shell: bash
         run: |
-          version="${RELEASE_VERSION#v}"
+          if [[ "$RELEASE_VERSION" == neoforge-26.1.2-v* ]]; then
+            version="${RELEASE_VERSION#neoforge-26.1.2-v}"
+          else
+            version="${RELEASE_VERSION#v}"
+          fi
           test -n "$version"
           echo "CURSEFORGE_VERSION=$version" >> "$GITHUB_ENV"
 
