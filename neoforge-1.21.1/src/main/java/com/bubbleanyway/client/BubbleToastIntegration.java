@@ -131,7 +131,7 @@ public final class BubbleToastIntegration {
 
         Recipe<?> recipe = recipeHolder.value();
         JsonObject overrides = baseOverrides("bubble_anyway:toast_recipe", "recipe_" + recipeHolder.id());
-        addTextParts(overrides, Component.translatable("recipe.toast"),
+        addTextParts(overrides, Component.translatable("recipe.toast.title"),
                 Component.translatable("recipe.toast.description"));
         addItemIcon(overrides, recipe.getToastSymbol());
         return Optional.of(new ToastData(BubbleClientConfig.recipeTheme(), GSON.toJson(overrides)));
