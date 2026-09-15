@@ -1,3 +1,8 @@
+## 1.3.0
+
+- Fixed recipe unlock Toasts so their title and description use the selected Minecraft language.
+- Updated all supported loader builds to version 1.3.0.
+
 ## 1.2.0
 
 - Synchronized pause-screen render layers across the multi-loader builds.
