@@ -38,6 +38,7 @@ public final class BubbleOverlay {
     private static final float ABOVE_PAUSE_Z = 1000.0F;
     // Item icons are explicitly rendered back into their bubble layer below.
     private static final float BUBBLE_LAYER_STEP = 1.0F;
+    private static final long NOT_CLOSING = Long.MIN_VALUE;
     private static final List<ActiveBubble> ACTIVE = new ArrayList<>();
     private static final List<QueuedBubble> PENDING = new ArrayList<>();
     private static final Map<ResourceLocation, TextureSize> TEXTURE_SIZES = new HashMap<>();
@@ -57,6 +58,9 @@ public final class BubbleOverlay {
         if (Minecraft.getInstance().level == null) {
             return false;
         }
+        if (spec.remove()) {
+            return requestRemoval(spec.id(), animationNow(Minecraft.getInstance().isPaused()));
+        }
         if (spec.replace()) {
             ACTIVE.removeIf(active -> active.spec.id().equals(spec.id()));
             PENDING.removeIf(queued -> queued.spec.id().equals(spec.id()));
@@ -67,6 +71,18 @@ public final class BubbleOverlay {
         // A queued bubble is accepted immediately. Toast integration can cancel the original
         // Toast because the bubble will be promoted when its screen region has room.
         return true;
+    }
+
+    private static boolean requestRemoval(String id, long now) {
+        boolean changed = PENDING.removeIf(queued -> queued.spec.id().equals(id));
+        for (ActiveBubble active : ACTIVE) {
+            if (active.spec.id().equals(id)) {
+                active.beginClosing(now);
+                changed = true;
+            }
+        }
+        ACTIVE.removeIf(active -> active.isClosing() && active.closeDuration() <= 0);
+        return changed;
     }
 
     public static synchronized void clear() {
@@ -167,7 +183,9 @@ public final class BubbleOverlay {
             Font font,
             int screenWidth,
             int screenHeight) {
-        ACTIVE.removeIf(active -> active.ageTicks(now) >= active.spec.duration());
+        ACTIVE.removeIf(active -> active.isClosing()
+                ? active.closeAgeTicks(now) >= active.closeDuration()
+                : active.spec.duration() != -1 && active.ageTicks(now) >= active.spec.duration());
         promotePending(now, font, screenWidth, screenHeight);
         return List.copyOf(ACTIVE);
     }
@@ -293,7 +311,9 @@ public final class BubbleOverlay {
         ResolvedIcon icon = placement.icon;
         BubbleSpec spec = active.spec;
         double age = active.ageTicks(now);
-        float alpha = alpha(spec, age);
+        float alpha = active.isClosing()
+                ? closingAlpha(spec, age, active.closeAgeTicks(now))
+                : alpha(spec, age);
         if (alpha <= MIN_RENDER_ALPHA) {
             return;
         }
@@ -308,7 +328,9 @@ public final class BubbleOverlay {
                 : (spec.animation() == BubbleSpec.Animation.SLIDE_FROM_LEFT || spec.animation() == BubbleSpec.Animation.SLIDE_FROM_RIGHT
                 ? layout.scaledWidth : layout.scaledHeight) + SCREEN_MARGIN + 8.0F;
         float slideIn = (1.0F - slideEntrance) * slideDistance;
-        float slideOut = exitSlideProgress(spec, age) * slideDistance;
+        float slideOut = (active.isClosing()
+                ? closeSlideProgress(spec, active.closeAgeTicks(now))
+                : exitSlideProgress(spec, age)) * slideDistance;
         float screenX = targetX;
         float screenY = targetY;
         if (spec.animation() == BubbleSpec.Animation.SLIDE_FROM_LEFT) screenX -= slideIn + slideOut;
@@ -377,7 +399,8 @@ public final class BubbleOverlay {
         }
 
         int textY = spec.padding() + spec.textOffsetY();
-        for (TextLine line : layout.lines) {
+        for (int lineIndex = 0; lineIndex < layout.lines.size(); lineIndex++) {
+            TextLine line = layout.lines.get(lineIndex);
             int lineWidth = line.width(font);
             int textX = switch (spec.textAlignment()) {
                 case LEFT -> layout.textStartX;
@@ -402,6 +425,9 @@ public final class BubbleOverlay {
                 runX += Math.round(font.width(run.component()) * run.part().scale());
             }
             textY += line.height(font);
+            if (lineIndex + 1 < layout.lines.size()) {
+                textY += spec.lineSpacing();
+            }
         }
         // Keep each bubble as one complete render unit. Without this flush, text from every
         // bubble remains queued until the end of the overlay and can appear above later bubbles'
@@ -611,14 +637,29 @@ public final class BubbleOverlay {
     }
 
     private static float alpha(BubbleSpec spec, double age) {
-        float fadeIn = spec.fadeIn() <= 0 ? 1.0F : Math.min(1.0F, (float) (age / spec.fadeIn()));
+        float fadeIn = fadeInProgress(spec, age);
+        if (spec.duration() == -1) {
+            return fadeIn;
+        }
         double fadeOutStart = Math.max(0, spec.duration() - spec.fadeOut());
         float fadeOut = spec.fadeOut() <= 0 || age < fadeOutStart ? 1.0F : Math.min(1.0F, (float) ((spec.duration() - age) / spec.fadeOut()));
         return Math.max(0.0F, Math.min(1.0F, Math.min(fadeIn, fadeOut)));
     }
 
+    private static float closingAlpha(BubbleSpec spec, double age, double closeAge) {
+        float fadeIn = fadeInProgress(spec, age);
+        float fadeOut = spec.fadeOut() <= 0
+                ? 1.0F
+                : Math.max(0.0F, 1.0F - Math.min(1.0F, (float) (closeAge / spec.fadeOut())));
+        return Math.max(0.0F, Math.min(1.0F, fadeIn * fadeOut));
+    }
+
+    private static float fadeInProgress(BubbleSpec spec, double age) {
+        return spec.fadeIn() <= 0 ? 1.0F : Math.min(1.0F, (float) (age / spec.fadeIn()));
+    }
+
     private static float exitSlideProgress(BubbleSpec spec, double age) {
-        if (spec.slideOut() <= 0) {
+        if (spec.duration() == -1 || spec.slideOut() <= 0) {
             return 0.0F;
         }
 
@@ -627,6 +668,13 @@ public final class BubbleOverlay {
             return 0.0F;
         }
         return eased(Math.min(1.0F, (float) ((age - slideOutStart) / spec.slideOut())));
+    }
+
+    private static float closeSlideProgress(BubbleSpec spec, double closeAge) {
+        if (spec.slideOut() <= 0) {
+            return 0.0F;
+        }
+        return eased(Math.min(1.0F, (float) (closeAge / spec.slideOut())));
     }
 
     private static float eased(float progress) {
@@ -639,9 +687,44 @@ public final class BubbleOverlay {
         return (alpha << 24) | (argb & 0x00FFFFFF);
     }
 
-    private record ActiveBubble(BubbleSpec spec, long createdAt, long sequence) {
+    private static final class ActiveBubble {
+        private final BubbleSpec spec;
+        private final long createdAt;
+        private final long sequence;
+        private long closingAt = NOT_CLOSING;
+
+        private ActiveBubble(BubbleSpec spec, long createdAt, long sequence) {
+            this.spec = spec;
+            this.createdAt = createdAt;
+            this.sequence = sequence;
+        }
+
+        private long sequence() {
+            return sequence;
+        }
+
         private double ageTicks(long now) {
             return (now - createdAt) / 50_000_000.0D;
+        }
+
+        private boolean isClosing() {
+            return closingAt != NOT_CLOSING;
+        }
+
+        private void beginClosing(long now) {
+            if (!isClosing()) {
+                closingAt = now;
+            }
+        }
+
+        private double closeAgeTicks(long now) {
+            return isClosing() ? (now - closingAt) / 50_000_000.0D : 0.0D;
+        }
+
+        private int closeDuration() {
+            return spec.animation() == BubbleSpec.Animation.FADE
+                    ? spec.fadeOut()
+                    : Math.max(spec.fadeOut(), spec.slideOut());
         }
     }
 
@@ -724,8 +807,9 @@ public final class BubbleOverlay {
             int width = spec.width() > 0
                     ? spec.width()
                     : autoWidth(measuredWidth, spec.padding(), iconWidth, maxWidth, spec.scale());
+            int lineSpacingHeight = Math.max(0, lines.size() - 1) * spec.lineSpacing();
             int minimumHeight = Math.max(Math.max(9, lines.stream().mapToInt(line -> line.height(font)).sum()), hasIcon ? spec.iconSize() : 0)
-                    + spec.padding() * 2;
+                    + spec.padding() * 2 + lineSpacingHeight;
             int height = spec.height() > 0 ? Math.max(spec.height(), minimumHeight) : minimumHeight;
             int textStartX = spec.padding() + iconWidth;
             int textAreaWidth = Math.max(1, width - spec.padding() - textStartX);

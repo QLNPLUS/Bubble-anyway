@@ -19,6 +19,7 @@ Forge 1.20.1 的通用高优先级信息气泡提示模组。
 - 支持 `background` 纹理资源路径，例如 `bubble_anyway:textures/gui/example.png`
 - `backgroundBorder` 大于 0 时启用九宫格背景；四角和四条边保持边框像素，中间区域自动拉伸。`backgroundGuide` 可跳过边框与中心之间的参考线像素，例如 66×66 图片使用 `backgroundBorder:8, backgroundGuide:1`。省略或设为 0 时整张 PNG 按气泡区域绘制
 - 支持 `priority`、`id`、`replace`；气泡会根据屏幕空间自动排队，不使用固定数量上限
+- 支持 `duration: -1` 创建永久气泡，并用同 ID 的 `remove: true` 请求播放原气泡的退出动画
 - 文字颜色使用 `textColor`，也兼容 `color`；支持 `#RRGGBB`、`#AARRGGBB` 或整数
 - 支持可复用主题：主题定义来自数据包或 `config/bubble_anyway/themes.json`
 - 主题气泡优先读取客户端本地主题；本地不存在时才按需向服务器请求对应主题
@@ -204,7 +205,7 @@ BubbleAnyway.showJson(JSON.stringify({
 
 ```javascript
 BubbleAnyway.showJson(JSON.stringify({
-  text: '自动适配宽高的提示\\n带一个钻石图标',
+  text: '自动适配宽高的提示\n带一个钻石图标',
   icon: 'minecraft:diamond',
   anchor: 'CENTER_TOP',
   y: 18,
@@ -213,9 +214,70 @@ BubbleAnyway.showJson(JSON.stringify({
 }));
 ```
 
+多行文本直接在 `text` 中换行。需要让标题和副标题使用不同样式时，可以使用 `textParts`：
+
+```javascript
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'task_complete',
+  textParts: [
+    { role: 'title', text: '任务完成' },
+    { role: 'subtitle', text: '\n奖励已经发放' }
+  ],
+  textStyles: {
+    title: { color: '#FFFF55', bold: true, scale: 1.1 },
+    subtitle: { color: '#FFFFFF', italic: true, scale: 0.9, shadow: false }
+  },
+  icon: 'minecraft:diamond',
+  iconSize: 48,
+  background: 'bubble_anyway:textures/gui/background_modern.png',
+  backgroundBorder: 8,
+  backgroundGuide: 1,
+  textAlign: 'LEFT',
+  anchor: 'TOP_RIGHT',
+  x: -12,
+  y: 12,
+  width: 280,
+  padding: 10,
+  animation: 'FADE',
+  fadeIn: 0,
+  fadeOut: 10,
+  duration: 100,
+  sound: '',
+  replace: true,
+  priority: 250,
+  layer: 'BELOW_PAUSE'
+}));
+```
+
+在 KubeJS 的 JavaScript 对象中，换行使用反斜杠加字母 n；不要额外再写一个反斜杠。图标 ID 可以替换为其他模组的物品 ID。
+
+永久显示的气泡可以使用 `duration: -1`。它会保留淡入和滑入动画，但不会自动淡出；移除时发送同一个 `id` 和 `remove: true`，会沿用原气泡的 `fadeOut`、`slideOut` 和 `animation` 播放退出动画。移除请求不需要填写 `text`：
+
+```javascript
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'long_notice',
+  text: '长期显示的提示',
+  animation: 'SLIDE_FROM_TOP',
+  fadeIn: 8,
+  fadeOut: 12,
+  slideIn: 8,
+  slideOut: 12,
+  duration: -1,
+  lineSpacing: 4,
+  replace: true
+}));
+
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'long_notice',
+  remove: true
+}));
+```
+
+`lineSpacing` 是文本行之间额外增加的 GUI 像素间距，默认是 `0`；它会参与自动高度计算，也会作用于显式换行和自动换行。
+
 能力演示脚本：`examples/kubejs/client_scripts/bubble_anyway_showcase.js` 使用 `ClientEvents.tick` 延迟轮换九个屏幕区域，展示不同动画、对齐方式、图标、九宫格背景、文本格式和自适应尺寸。
 
-新增功能测试脚本：`examples/kubejs/client_scripts/bubble_anyway_new_features.js` 覆盖多段文本、文本角色样式、PNG 图标、无淡入淡出的滑入、FADE 忽略滑动时间、自动换行和主题覆盖。服务端网络测试脚本位于 `examples/kubejs/server_scripts/bubble_anyway_new_features_server.js`。
+新增功能测试脚本：`examples/kubejs/client_scripts/bubble_anyway_new_features.js` 覆盖多段文本、文本角色样式、PNG 图标、无淡入淡出的滑入、FADE 忽略滑动时间、自动换行、主题覆盖、永久气泡、退出动画和行间距。服务端网络测试脚本位于 `examples/kubejs/server_scripts/bubble_anyway_new_features_server.js`。
 
 原版和 FTB Quests Toast 接管使用 `config/bubble_anyway/client.toml`，主题定义仍放在 `config/bubble_anyway/themes.json`。完整配置示例见 `examples/config/bubble_anyway/client.toml`。
 
@@ -223,4 +285,4 @@ BubbleAnyway.showJson(JSON.stringify({
 
 `duration`、`fadeIn`、`fadeOut`、`slideIn`、`slideOut` 使用 tick，20 tick 约等于 1 秒。`fadeIn` 和 `fadeOut` 只控制透明度；`slideIn` 和 `slideOut` 只控制 `SLIDE_FROM_*` 的位移动画，`FADE` 模式会忽略它们。设置 `fadeIn: 0, fadeOut: 0, slideIn: 8, slideOut: 0` 可实现完全不透明地从屏幕外弹入。
 
-`text` 必填。颜色字段推荐使用 `textColor`，同时兼容 `color`；支持 `#RRGGBB` 或 `#AARRGGBB`。`duration`、`fadeIn`、`fadeOut` 使用 tick，20 tick 约等于 1 秒。`width` 和 `height` 省略或设为 `0` 时自动适配；填写后分别固定气泡的最小宽度和最小高度，文字过多时仍会自动增高避免裁切。`maxWidth` 默认 `320`，用于自动宽度过长时换行。`textAlign` 支持 `LEFT`、`CENTER`、`RIGHT`，默认是 `LEFT`。`icon` 填物品 ID，例如 `minecraft:diamond`；`iconSize` 默认 `16`，`iconGap` 默认 `6`；`iconOffsetX`、`iconOffsetY` 默认 `0`，用于按 GUI 像素微调图标位置。`textOffsetX`、`textOffsetY` 默认 `0`，用于按 GUI 像素微调文字位置，支持负数。偏移只改变绘制位置，不参与自动宽高计算。`layer` 默认是 `BELOW_PAUSE`，可设为 `ABOVE_PAUSE`；普通气泡默认位于暂停页面下方，成就、配方和 FTB Toast 接管气泡会自动使用 `ABOVE_PAUSE`。`sound` 默认是 `minecraft:ui.button.click`，填写音效资源 ID即可更换；`soundVolume` 默认 `1.0`，范围 `0.0` 到 `2.0`；`soundPitch` 默认 `1.0`，范围 `0.5` 到 `2.0`。将 `sound` 设为空字符串或将 `soundVolume` 设为 `0` 可以关闭音效。普通 64×64 九宫格使用 `backgroundBorder:8`；如果 PNG 是 66×66，并在边框与中心之间保留 1px 黑色参考线，则使用 `backgroundBorder:8, backgroundGuide:1`，参考线不会参与拼接或显示。PNG 放在 `src/main/resources/assets/bubble_anyway/textures/gui/` 下，资源路径不写 `assets/`。
+`text` 必填，`remove: true` 的同 ID 移除请求除外。颜色字段推荐使用 `textColor`，同时兼容 `color`；支持 `#RRGGBB` 或 `#AARRGGBB`。`duration`、`fadeIn`、`fadeOut` 使用 tick，20 tick 约等于 1 秒；`duration: -1` 表示永久显示。`remove: true` 会移除同 ID 的活动或等待中气泡；活动气泡会使用原气泡的退出动画。`width` 和 `height` 省略或设为 `0` 时自动适配；填写后分别固定气泡的最小宽度和最小高度，文字过多时仍会自动增高避免裁切。`maxWidth` 默认 `320`，用于自动宽度过长时换行。`lineSpacing` 默认 `0`，范围 `0` 到 `128`，用于增加文本行之间的 GUI 像素间距，并参与自动高度计算。`textAlign` 支持 `LEFT`、`CENTER`、`RIGHT`，默认是 `LEFT`。`icon` 填物品 ID，例如 `minecraft:diamond`；`iconSize` 默认 `16`，`iconGap` 默认 `6`；`iconOffsetX`、`iconOffsetY` 默认 `0`，用于按 GUI 像素微调图标位置。`textOffsetX`、`textOffsetY` 默认 `0`，用于按 GUI 像素微调文字位置，支持负数。偏移只改变绘制位置，不参与自动宽高计算。`layer` 默认是 `BELOW_PAUSE`，可设为 `ABOVE_PAUSE`；普通气泡默认位于暂停页面下方，成就、配方和 FTB Toast 接管气泡会自动使用 `ABOVE_PAUSE`。`sound` 默认是 `minecraft:ui.button.click`，填写音效资源 ID即可更换；`soundVolume` 默认 `1.0`，范围 `0.0` 到 `2.0`；`soundPitch` 默认 `1.0`，范围 `0.5` 到 `2.0`。将 `sound` 设为空字符串或将 `soundVolume` 设为 `0` 可以关闭音效。普通 64×64 九宫格使用 `backgroundBorder:8`；如果 PNG 是 66×66，并在边框与中心之间保留 1px 黑色参考线，则使用 `backgroundBorder:8, backgroundGuide:1`，参考线不会参与拼接或显示。PNG 放在 `src/main/resources/assets/bubble_anyway/textures/gui/` 下，资源路径不写 `assets/`。

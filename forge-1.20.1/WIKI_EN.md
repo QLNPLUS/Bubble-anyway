@@ -112,9 +112,10 @@ theme definition. A theme may be partial. Missing values use the mod defaults.
 | `height` | integer | `0` | 0 enables automatic height. Text is never intentionally clipped. |
 | `maxWidth` | integer | `320` | Maximum automatic wrapping width. |
 | `padding` | integer | `10` | Inner padding in GUI pixels. |
+| `lineSpacing` | integer | `0` | Extra spacing between text lines in GUI pixels, from 0 to 128. It contributes to automatic height. |
 | `textAlign` | string | `LEFT` | `LEFT`, `CENTER`, or `RIGHT`. |
 | `align` | string | none | Compatibility alias for `textAlign`. |
-| `duration` | integer | `100` | Lifetime in ticks. 20 ticks are approximately one second. |
+| `duration` | integer | `100` | Lifetime in ticks. 20 ticks are approximately one second. `-1` keeps the bubble visible indefinitely. |
 | `fadeIn` | integer | `8` | Fade-in duration in ticks. 0 disables fade-in. |
 | `fadeOut` | integer | `12` | Fade-out duration in ticks. 0 disables fade-out. |
 | `slideIn` | integer | `8` | Slide-in duration for `SLIDE_FROM_*` animations. |
@@ -130,6 +131,7 @@ theme definition. A theme may be partial. Missing values use the mod defaults.
 | `obfuscated` | boolean | `false` | Obfuscated text. |
 | `shadow` | boolean | `true` | Whether text shadow is drawn. |
 | `replace` | boolean | `true` | Replace a bubble with the same ID. |
+| `remove` | boolean | `false` | Remove active or queued bubbles with the same ID. Active bubbles play their original exit animation; `text` is not required. |
 | `anchor` | string | `CENTER_TOP` | One of the anchor values below. |
 | `animation` | string | `FADE` | `FADE` or one of the four slide values below. |
 | `textParts` | array | none | Text segments with independent styles. |

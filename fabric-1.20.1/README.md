@@ -73,9 +73,48 @@ BubbleAnyway.showJson(JSON.stringify({
 BubbleAnyway.clear();
 ```
 
+多行文本直接在 `text` 中换行。需要让标题和副标题使用不同样式时，可以使用 `textParts`：
+
+```javascript
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'task_complete',
+  textParts: [
+    { role: 'title', text: '任务完成' },
+    { role: 'subtitle', text: '\n奖励已经发放' }
+  ],
+  textStyles: {
+    title: { color: '#FFFF55', bold: true, scale: 1.1 },
+    subtitle: { color: '#FFFFFF', italic: true, scale: 0.9, shadow: false }
+  },
+  icon: 'minecraft:diamond',
+  iconSize: 48,
+  background: 'bubble_anyway:textures/gui/background_modern.png',
+  backgroundBorder: 8,
+  backgroundGuide: 1,
+  textAlign: 'LEFT',
+  anchor: 'TOP_RIGHT',
+  x: -12,
+  y: 12,
+  width: 280,
+  padding: 10,
+  animation: 'FADE',
+  fadeIn: 0,
+  fadeOut: 10,
+  duration: 100,
+  sound: '',
+  replace: true,
+  priority: 250,
+  layer: 'BELOW_PAUSE'
+}));
+```
+
+在 KubeJS 的 JavaScript 对象中，换行使用反斜杠加字母 n；不要额外再写一个反斜杠。图标 ID 可以替换为其他模组的物品 ID。
+
 能力演示脚本：`examples/kubejs/client_scripts/bubble_anyway_showcase.js` 使用 `ClientEvents.tick` 延迟轮换九个屏幕区域，展示不同动画、对齐方式、图标、九宫格背景、文本格式、音效和自适应尺寸。
 
 ### JSON 字段
+
+设置 `duration: -1` 可创建永久显示的气泡；发送相同 `id` 和 `remove: true` 的 JSON 会沿用原气泡的淡出、滑出动画并移除它，移除请求不需要填写 `text`。`lineSpacing` 默认是 `0`，范围为 `0` 到 `128`，用于增加文本行之间的 GUI 像素间距，并参与自动高度计算。
 
 `duration`、`fadeIn`、`fadeOut`、`slideIn`、`slideOut` 使用 tick，20 tick 约等于 1 秒。`fadeIn` 和 `fadeOut` 只控制透明度；`slideIn` 和 `slideOut` 只控制 `SLIDE_FROM_*` 的位移动画，`FADE` 模式会忽略它们。设置 `fadeIn: 0, fadeOut: 0, slideIn: 8, slideOut: 0` 可实现完全不透明地从屏幕外弹入。
 

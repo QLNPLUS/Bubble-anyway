@@ -54,6 +54,7 @@ public final class BubblePayload {
         buffer.writeInt(spec.height());
         buffer.writeInt(spec.maxWidth());
         buffer.writeInt(spec.padding());
+        buffer.writeInt(spec.lineSpacing());
         buffer.writeUtf(spec.textAlignment().name(), 32);
         buffer.writeInt(spec.duration());
         buffer.writeInt(spec.fadeIn());
@@ -69,6 +70,7 @@ public final class BubblePayload {
         buffer.writeBoolean(spec.obfuscated());
         buffer.writeBoolean(spec.shadow());
         buffer.writeBoolean(spec.replace());
+        buffer.writeBoolean(spec.remove());
         buffer.writeUtf(spec.anchor().name(), 32);
         buffer.writeUtf(spec.animation().name(), 32);
         buffer.writeUtf(spec.renderLayer().name(), 32);
@@ -111,6 +113,7 @@ public final class BubblePayload {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
+                buffer.readInt(),
                 BubbleSpec.TextAlignment.parse(buffer.readUtf(32)),
                 buffer.readInt(),
                 buffer.readInt(),
@@ -119,6 +122,7 @@ public final class BubblePayload {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readFloat(),
+                buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readBoolean(),

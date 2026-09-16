@@ -54,6 +54,7 @@ public final class BubblePayload {
         buffer.writeInt(spec.height());
         buffer.writeInt(spec.maxWidth());
         buffer.writeInt(spec.padding());
+        buffer.writeInt(spec.lineSpacing());
         buffer.writeUtf(spec.textAlignment().name(), 32);
         buffer.writeInt(spec.duration());
         buffer.writeInt(spec.fadeIn());
@@ -69,6 +70,7 @@ public final class BubblePayload {
         buffer.writeBoolean(spec.obfuscated());
         buffer.writeBoolean(spec.shadow());
         buffer.writeBoolean(spec.replace());
+        buffer.writeBoolean(spec.remove());
         buffer.writeUtf(spec.anchor().name(), 32);
         buffer.writeUtf(spec.animation().name(), 32);
         buffer.writeUtf(spec.renderLayer().name(), 32);
@@ -85,50 +87,92 @@ public final class BubblePayload {
         String iconId = buffer.readUtf(128);
         BubbleSpec.IconType iconType = BubbleSpec.IconType.parse(buffer.readUtf(32));
         String textPartsJson = buffer.readUtf(32767);
+        int iconSize = buffer.readInt();
+        int iconGap = buffer.readInt();
+        int iconOffsetX = buffer.readInt();
+        int iconOffsetY = buffer.readInt();
+        int textOffsetX = buffer.readInt();
+        int textOffsetY = buffer.readInt();
+        int textColor = buffer.readInt();
+        int backgroundColor = buffer.readInt();
+        String backgroundTexture = buffer.readUtf(256);
+        int backgroundBorder = buffer.readInt();
+        int backgroundGuide = buffer.readInt();
+        String sound = buffer.readUtf(256);
+        float soundVolume = buffer.readFloat();
+        float soundPitch = buffer.readFloat();
+        int x = buffer.readInt();
+        int y = buffer.readInt();
+        int width = buffer.readInt();
+        int height = buffer.readInt();
+        int maxWidth = buffer.readInt();
+        int padding = buffer.readInt();
+        int lineSpacing = buffer.readInt();
+        BubbleSpec.TextAlignment textAlignment = BubbleSpec.TextAlignment.parse(buffer.readUtf(32));
+        int duration = buffer.readInt();
+        int fadeIn = buffer.readInt();
+        int fadeOut = buffer.readInt();
+        int slideIn = buffer.readInt();
+        int slideOut = buffer.readInt();
+        int priority = buffer.readInt();
+        float scale = buffer.readFloat();
+        boolean bold = buffer.readBoolean();
+        boolean italic = buffer.readBoolean();
+        boolean underlined = buffer.readBoolean();
+        boolean strikethrough = buffer.readBoolean();
+        boolean obfuscated = buffer.readBoolean();
+        boolean shadow = buffer.readBoolean();
+        boolean replace = buffer.readBoolean();
+        boolean remove = buffer.readBoolean();
+        BubbleSpec.Anchor anchor = BubbleSpec.Anchor.parse(buffer.readUtf(32));
+        BubbleSpec.Animation animation = BubbleSpec.Animation.parse(buffer.readUtf(32));
+        BubbleSpec.RenderLayer renderLayer = BubbleSpec.RenderLayer.parse(buffer.readUtf(32));
         BubbleSpec spec = new BubbleSpec(
                 id,
                 text,
                 iconId,
                 iconType,
                 BubbleSpec.parseTextPartsJson(textPartsJson),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readUtf(256),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readUtf(256),
-                buffer.readFloat(),
-                buffer.readFloat(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                BubbleSpec.TextAlignment.parse(buffer.readUtf(32)),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readFloat(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                buffer.readBoolean(),
-                BubbleSpec.Anchor.parse(buffer.readUtf(32)),
-                BubbleSpec.Animation.parse(buffer.readUtf(32)));
-        return show(spec.withRenderLayer(BubbleSpec.RenderLayer.parse(buffer.readUtf(32))));
+                iconSize,
+                iconGap,
+                iconOffsetX,
+                iconOffsetY,
+                textOffsetX,
+                textOffsetY,
+                textColor,
+                backgroundColor,
+                backgroundTexture,
+                backgroundBorder,
+                backgroundGuide,
+                sound,
+                soundVolume,
+                soundPitch,
+                x,
+                y,
+                width,
+                height,
+                maxWidth,
+                padding,
+                textAlignment,
+                duration,
+                fadeIn,
+                fadeOut,
+                slideIn,
+                slideOut,
+                priority,
+                scale,
+                bold,
+                italic,
+                underlined,
+                strikethrough,
+                obfuscated,
+                shadow,
+                replace,
+                anchor,
+                animation,
+                lineSpacing,
+                remove);
+        return show(spec.withRenderLayer(renderLayer));
     }
 
     public static void handle(BubblePayload payload, Supplier<NetworkEvent.Context> contextSupplier) {
