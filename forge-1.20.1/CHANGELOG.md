@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Added permanent bubbles with `duration: -1` and same-ID removal requests that play the original exit animation.
+- Added configurable `lineSpacing` for multi-line bubble text and automatic height calculation.
+- Synchronized the new JSON and network payload fields across the supported loaders.
+
 ## 1.3.0
 
 - Fixed recipe unlock Toasts so their title and description use the selected Minecraft language.
