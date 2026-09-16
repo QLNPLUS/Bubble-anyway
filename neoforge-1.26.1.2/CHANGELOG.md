@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Added permanent bubbles with `duration: -1` and same-ID removal requests that play the original exit animation.
+- Added configurable `lineSpacing` for multi-line bubble text and automatic height calculation.
+- Synchronized the new JSON and network payload fields across the supported loaders.
+
 ## 1.2.1
 
 - Fixed NeoForge 26.1.2 GUI-layer rendering so bubbles and converted advancement Toasts are visible during normal gameplay.
