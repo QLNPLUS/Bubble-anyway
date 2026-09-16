@@ -71,7 +71,7 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 |---|---|---:|---|---|
 | id | 字符串 | 随机 UUID | 任意非空字符串 | 气泡实例 ID。replace 为 true 时，相同 ID 的旧气泡会被替换。主题完整配置时可以省略。 |
 | theme | 字符串 | 无 | namespace:path 或简写 path | 主题 ID。存在此字段时使用主题气泡网络流程。 |
-| text | 字符串 | 无 | 非空文本 | 显示文本，支持换行。使用主题时可以由主题提供，也可以由当前气泡覆盖。 |
+| text | 字符串 | 无 | 普通气泡需要非空文本 | 显示文本，支持换行；`remove: true` 请求可以省略。使用主题时可以由主题提供，也可以由当前气泡覆盖。 |
 | message | 字符串 | 无 | 同 text | text 的兼容别名。text 优先。 |
 | icon | 字符串 | "" | 物品 ID，例如 minecraft:diamond | 显示在文字左侧的物品图标。 |
 | item | 字符串 | "" | 同 icon | icon 的兼容别名。 |
@@ -97,9 +97,10 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | height | 整数 | 0 | 0 到 4096 | 0 为自动高度；大于 0 时至少使用指定高度，文字过多时仍会增高避免裁切。 |
 | maxWidth | 整数 | 320 | 40 到 4096 | 自动宽度模式下的最大文字换行宽度。 |
 | padding | 整数 | 10 | 0 到 128 | 气泡内边距，单位为 GUI 像素。 |
+| lineSpacing | 整数 | 0 | 0 到 128 | 文本行之间额外增加的 GUI 像素间距，会参与自动高度计算。 |
 | textAlign | 字符串 | LEFT | LEFT、CENTER、RIGHT | 文字左对齐、居中或右对齐。 |
 | align | 字符串 | 无 | 同 textAlign | textAlign 的兼容别名。 |
-| duration | 整数 | 100 | 1 到 72000 | 显示时长，单位为 tick。20 tick 约等于 1 秒。 |
+| duration | 整数 | 100 | -1 或 1 到 72000 | 显示时长，单位为 tick。20 tick 约等于 1 秒；`-1` 表示永久显示。 |
 | fadeIn | 整数 | 8 | 0 到 duration | 淡入时长，单位为 tick。 |
 | fadeOut | 整数 | 12 | 0 到 duration | 淡出时长，单位为 tick。 |
 | slideIn | 整数 | 8 | 0 到 duration | 滑入时长，单位为 tick；仅对 `SLIDE_FROM_*` 生效。 |
@@ -115,6 +116,7 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | obfuscated | 布尔值 | false | true、false | 乱码效果。 |
 | shadow | 布尔值 | true | true、false | 是否绘制文字阴影。 |
 | replace | 布尔值 | true | true、false | 相同 id 的气泡是否替换。 |
+| remove | 布尔值 | false | true、false | 为 true 时移除同 ID 的活动或等待中气泡；活动气泡会播放原气泡的退出动画，不需要填写 text。 |
 | anchor | 字符串 | CENTER_TOP | 见锚点列表 | 气泡定位基准点。 |
 | animation | 字符串 | FADE | 见动画列表 | 气泡进入和离开动画。 |
 | textParts | 数组 | 无 | 多个文本片段对象 | 支持多行、每段独立颜色、字号、粗体、斜体、下划线、删除线、乱码和阴影。存在时优先用于绘制文本。 |
@@ -133,7 +135,7 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 
 ### 文本换行
 
-JSON 字符串中使用 \n 表示换行。JavaScript 源码中的示例：
+JSON 字符串中使用 \n 表示换行。`lineSpacing` 可以在每一行之间增加额外间距。JavaScript 源码中的示例：
 
 ~~~javascript
 text: '第一行\n第二行'
@@ -593,6 +595,25 @@ BubbleAnyway.showThemeJson('bubble_anyway:warning', JSON.stringify({
 }));
 
 BubbleAnyway.clear();
+~~~
+
+永久显示和带退出动画的移除：
+
+~~~javascript
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'long_notice',
+  text: '第一行\n第二行',
+  lineSpacing: 4,
+  animation: 'SLIDE_FROM_TOP',
+  fadeOut: 12,
+  slideOut: 12,
+  duration: -1
+}));
+
+BubbleAnyway.showJson(JSON.stringify({
+  id: 'long_notice',
+  remove: true
+}));
 ~~~
 
 方法：

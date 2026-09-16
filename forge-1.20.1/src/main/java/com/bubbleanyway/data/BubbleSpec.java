@@ -20,6 +20,7 @@ public final class BubbleSpec {
     public static final int DEFAULT_SLIDE_OUT = 12;
     public static final int DEFAULT_MAX_WIDTH = 320;
     public static final int DEFAULT_PADDING = 10;
+    public static final int DEFAULT_LINE_SPACING = 0;
     public static final int DEFAULT_BACKGROUND_BORDER = 0;
     public static final int DEFAULT_BACKGROUND_GUIDE = 0;
     public static final int DEFAULT_ICON_SIZE = 16;
@@ -31,6 +32,7 @@ public final class BubbleSpec {
     public static final String DEFAULT_SOUND = "minecraft:ui.button.click";
     public static final float DEFAULT_SOUND_VOLUME = 1.0F;
     public static final float DEFAULT_SOUND_PITCH = 1.0F;
+    private static final int MAX_DURATION = 20 * 60 * 60;
     private static final Gson GSON = new GsonBuilder().create();
 
     private final String id;
@@ -58,6 +60,7 @@ public final class BubbleSpec {
     private final int height;
     private final int maxWidth;
     private final int padding;
+    private final int lineSpacing;
     private final TextAlignment textAlignment;
     private final int duration;
     private final int fadeIn;
@@ -73,6 +76,7 @@ public final class BubbleSpec {
     private final boolean obfuscated;
     private final boolean shadow;
     private final boolean replace;
+    private final boolean remove;
     private final Anchor anchor;
     private final Animation animation;
     private final RenderLayer renderLayer;
@@ -116,12 +120,13 @@ public final class BubbleSpec {
             boolean replace,
             Anchor anchor,
             Animation animation) {
-        this(id, text, iconId, iconSize, iconGap,
+        this(id, text, iconId, IconType.AUTO, List.of(), iconSize, iconGap,
                 iconOffsetX, iconOffsetY, textOffsetX, textOffsetY,
                 textColor, backgroundColor, backgroundTexture, backgroundBorder, backgroundGuide,
                 sound, soundVolume, soundPitch, x, y, width, height, maxWidth, padding, textAlignment,
                 duration, fadeIn, fadeOut, DEFAULT_SLIDE_IN, DEFAULT_SLIDE_OUT, priority, scale,
-                bold, italic, underlined, strikethrough, obfuscated, shadow, replace, anchor, animation);
+                bold, italic, underlined, strikethrough, obfuscated, shadow, replace, anchor, animation,
+                DEFAULT_LINE_SPACING, false);
     }
 
     public BubbleSpec(
@@ -167,6 +172,59 @@ public final class BubbleSpec {
             boolean replace,
             Anchor anchor,
             Animation animation) {
+        this(id, text, iconId, iconType, textParts, iconSize, iconGap,
+                iconOffsetX, iconOffsetY, textOffsetX, textOffsetY, textColor, backgroundColor,
+                backgroundTexture, backgroundBorder, backgroundGuide, sound, soundVolume, soundPitch,
+                x, y, width, height, maxWidth, padding, textAlignment, duration, fadeIn, fadeOut,
+                slideIn, slideOut, priority, scale, bold, italic, underlined, strikethrough,
+                obfuscated, shadow, replace, anchor, animation, DEFAULT_LINE_SPACING, false);
+    }
+
+    public BubbleSpec(
+            String id,
+            String text,
+            String iconId,
+            IconType iconType,
+            List<TextPart> textParts,
+            int iconSize,
+            int iconGap,
+            int iconOffsetX,
+            int iconOffsetY,
+            int textOffsetX,
+            int textOffsetY,
+            int textColor,
+            int backgroundColor,
+            String backgroundTexture,
+            int backgroundBorder,
+            int backgroundGuide,
+            String sound,
+            float soundVolume,
+            float soundPitch,
+            int x,
+            int y,
+            int width,
+            int height,
+            int maxWidth,
+            int padding,
+            TextAlignment textAlignment,
+            int duration,
+            int fadeIn,
+            int fadeOut,
+            int slideIn,
+            int slideOut,
+            int priority,
+            float scale,
+            boolean bold,
+            boolean italic,
+            boolean underlined,
+            boolean strikethrough,
+            boolean obfuscated,
+            boolean shadow,
+            boolean replace,
+            Anchor anchor,
+            Animation animation,
+            int lineSpacing,
+            boolean remove) {
         this.id = id == null || id.isBlank() ? UUID.randomUUID().toString() : id;
         this.text = text == null ? "" : text;
         this.iconId = iconId == null ? "" : iconId;
@@ -191,12 +249,14 @@ public final class BubbleSpec {
         this.height = clamp(height, 0, 4096);
         this.maxWidth = clamp(maxWidth, 40, 4096);
         this.padding = clamp(padding, 0, 128);
+        this.lineSpacing = clamp(lineSpacing, 0, 128);
         this.textAlignment = textAlignment == null ? TextAlignment.LEFT : textAlignment;
-        this.duration = clamp(duration, 1, 20 * 60 * 60);
-        this.fadeIn = clamp(fadeIn, 0, this.duration);
-        this.fadeOut = clamp(fadeOut, 0, this.duration);
-        this.slideIn = clamp(slideIn, 0, this.duration);
-        this.slideOut = clamp(slideOut, 0, this.duration);
+        this.duration = duration == -1 ? -1 : clamp(duration, 1, MAX_DURATION);
+        int animationDuration = this.duration == -1 ? MAX_DURATION : this.duration;
+        this.fadeIn = clamp(fadeIn, 0, animationDuration);
+        this.fadeOut = clamp(fadeOut, 0, animationDuration);
+        this.slideIn = clamp(slideIn, 0, animationDuration);
+        this.slideOut = clamp(slideOut, 0, animationDuration);
         this.priority = priority;
         this.scale = clamp(scale, 0.5F, 4.0F);
         this.bold = bold;
@@ -206,6 +266,7 @@ public final class BubbleSpec {
         this.obfuscated = obfuscated;
         this.shadow = shadow;
         this.replace = replace;
+        this.remove = remove;
         this.anchor = anchor == null ? Anchor.CENTER_TOP : anchor;
         this.animation = animation == null ? Animation.FADE : animation;
         this.renderLayer = RenderLayer.BELOW_PAUSE;
@@ -241,6 +302,7 @@ public final class BubbleSpec {
         this.height = source.height;
         this.maxWidth = source.maxWidth;
         this.padding = source.padding;
+        this.lineSpacing = source.lineSpacing;
         this.textAlignment = source.textAlignment;
         this.duration = source.duration;
         this.fadeIn = source.fadeIn;
@@ -256,6 +318,7 @@ public final class BubbleSpec {
         this.obfuscated = source.obfuscated;
         this.shadow = source.shadow;
         this.replace = source.replace;
+        this.remove = source.remove;
         this.anchor = source.anchor;
         this.animation = source.animation;
         this.renderLayer = renderLayer == null ? RenderLayer.BELOW_PAUSE : renderLayer;
@@ -405,6 +468,11 @@ public final class BubbleSpec {
         }
 
         JsonObject object = element.getAsJsonObject();
+        String id = string(object, "id", "");
+        boolean remove = bool(object, "remove", false);
+        if (remove && id.isBlank()) {
+            throw new IllegalArgumentException("Bubble remove config requires a non-empty 'id'");
+        }
         int textColor = textColor(object);
         float scale = decimal(object, "fontSize", decimal(object, "scale", 1.0F));
         boolean bold = bool(object, "bold", false);
@@ -419,12 +487,12 @@ public final class BubbleSpec {
         if (text.isEmpty() && !textParts.isEmpty()) {
             text = textParts.stream().map(TextPart::text).reduce("", String::concat);
         }
-        if (text.isEmpty()) {
+        if (text.isEmpty() && !remove) {
             throw new IllegalArgumentException("Bubble config requires a non-empty 'text' or 'textParts'");
         }
 
         return new BubbleSpec(
-                string(object, "id", UUID.randomUUID().toString()),
+                id,
                 text,
                 string(object, "icon", string(object, "item", "")),
                 IconType.parse(string(object, "iconType", "AUTO")),
@@ -465,7 +533,9 @@ public final class BubbleSpec {
                 shadow,
                 bool(object, "replace", true),
                 Anchor.parse(string(object, "anchor", "CENTER_TOP")),
-                Animation.parse(string(object, "animation", "FADE")))
+                Animation.parse(string(object, "animation", "FADE")),
+                integer(object, "lineSpacing", DEFAULT_LINE_SPACING),
+                remove)
                 .withRenderLayer(RenderLayer.parse(string(object, "layer", "BELOW_PAUSE")));
     }
 
@@ -582,6 +652,7 @@ public final class BubbleSpec {
     public int height() { return height; }
     public int maxWidth() { return maxWidth; }
     public int padding() { return padding; }
+    public int lineSpacing() { return lineSpacing; }
     public TextAlignment textAlignment() { return textAlignment; }
     public int duration() { return duration; }
     public int fadeIn() { return fadeIn; }
@@ -597,6 +668,7 @@ public final class BubbleSpec {
     public boolean obfuscated() { return obfuscated; }
     public boolean shadow() { return shadow; }
     public boolean replace() { return replace; }
+    public boolean remove() { return remove; }
     public RenderLayer renderLayer() { return renderLayer; }
     public Anchor anchor() { return anchor; }
     public Animation animation() { return animation; }

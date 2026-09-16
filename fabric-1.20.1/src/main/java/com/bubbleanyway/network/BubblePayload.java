@@ -44,6 +44,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readInt(),
+                buffer.readInt(),
                 BubbleSpec.TextAlignment.parse(buffer.readString(32)),
                 buffer.readInt(),
                 buffer.readInt(),
@@ -52,6 +53,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
                 buffer.readInt(),
                 buffer.readInt(),
                 buffer.readFloat(),
+                buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readBoolean(),
                 buffer.readBoolean(),
@@ -96,6 +98,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
         buffer.writeInt(spec.height());
         buffer.writeInt(spec.maxWidth());
         buffer.writeInt(spec.padding());
+        buffer.writeInt(spec.lineSpacing());
         buffer.writeString(spec.textAlignment().name(), 32);
         buffer.writeInt(spec.duration());
         buffer.writeInt(spec.fadeIn());
@@ -111,6 +114,7 @@ public record BubblePayload(BubbleSpec spec, boolean clear) {
         buffer.writeBoolean(spec.obfuscated());
         buffer.writeBoolean(spec.shadow());
         buffer.writeBoolean(spec.replace());
+        buffer.writeBoolean(spec.remove());
         buffer.writeString(spec.anchor().name(), 32);
         buffer.writeString(spec.animation().name(), 32);
         buffer.writeString(spec.renderLayer().name(), 32);

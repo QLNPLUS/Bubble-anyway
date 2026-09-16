@@ -138,6 +138,26 @@ const TESTS = [
     icon: 'minecraft:nether_star',
     iconType: 'ITEM',
     priority: 260
+  },
+  {
+    id: 'test_persistent_with_spacing',
+    text: '永久气泡第一行\n行间距会增加\n直到下一项移除它',
+    lineSpacing: 6,
+    anchor: 'BOTTOM_RIGHT',
+    x: 10,
+    y: 10,
+    animation: 'SLIDE_FROM_RIGHT',
+    fadeIn: 8,
+    fadeOut: 12,
+    slideIn: 8,
+    slideOut: 12,
+    duration: -1,
+    backgroundColor: '#E6111720',
+    replace: true
+  },
+  {
+    id: 'test_persistent_with_spacing',
+    remove: true
   }
 ];
 
