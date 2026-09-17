@@ -11,6 +11,7 @@ import net.neoforged.neoforge.client.event.ToastAddEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.neoforged.neoforge.common.NeoForge;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.glfw.GLFW;
 
 @Mod(value = BubbleAnyway.MOD_ID, dist = Dist.CLIENT)
 public final class BubbleAnywayClient {
@@ -19,6 +20,7 @@ public final class BubbleAnywayClient {
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderHudLayerPost);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderScreenPre);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::renderScreenPost);
+        NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::screenMousePressed);
         NeoForge.EVENT_BUS.addListener(BubbleAnywayClient::clientTick);
     }
 
@@ -51,6 +53,20 @@ public final class BubbleAnywayClient {
             } else {
                 BubbleOverlay.render(event.getGuiGraphics(), event.getPartialTick());
             }
+        }
+    }
+
+    public static void screenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return;
+        }
+        com.bubbleanyway.data.BubbleSpec.RenderLayer layer =
+                event.getScreen() instanceof net.minecraft.client.gui.screens.PauseScreen
+                        ? com.bubbleanyway.data.BubbleSpec.RenderLayer.ABOVE_PAUSE : null;
+        if (BubbleOverlay.handleMouseClick(event.getMouseX(), event.getMouseY(), event.getButton(),
+                event.getScreen().width, event.getScreen().height, layer)) {
+            event.setCanceled(true);
         }
     }
 

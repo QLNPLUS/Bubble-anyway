@@ -1,3 +1,11 @@
+## 1.5.0
+
+- Added clickable bubble controls with multiple buttons, layouts, hover/pressed states, and textured nine-slice button backgrounds.
+- Added Java and KubeJS click events exposing the player, bubble ID, control ID, and custom control data.
+- Added Builder APIs for bubbles and controls, compact control JSON, and theme-based control definitions and overrides.
+- Controls only capture mouse input while a GUI screen owns the cursor; normal game camera movement is unaffected.
+- Themes are requested on demand instead of fully synchronized at login.
+
 ## 1.4.0
 
 - Added permanent bubbles with `duration: -1` and same-ID removal requests that play the original exit animation.

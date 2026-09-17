@@ -1,6 +1,11 @@
 package com.bubbleanyway.client;
 
 import com.bubbleanyway.data.BubbleSpec;
+import com.bubbleanyway.data.BubbleControl;
+import com.bubbleanyway.data.BubbleControls;
+import com.bubbleanyway.data.BubbleControlStyle;
+import com.bubbleanyway.network.BubbleNetwork;
+import com.bubbleanyway.kubejs.BubbleKubeJSBindings;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,6 +29,8 @@ import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Identifier;
 import net.minecraft.sound.SoundEvent;
+import net.minecraft.text.TextColor;
+import net.minecraft.client.gui.screen.GameMenuScreen;
 
 public final class BubbleOverlay {
     private static final int SCREEN_MARGIN = 6;
@@ -40,11 +47,18 @@ public final class BubbleOverlay {
     private static long wallClockNow;
     private static boolean clockInitialized;
     private static boolean renderCallbackSeen;
+    private static String pressedBubbleId = "";
+    private static String pressedControlId = "";
+    private static long pressedUntil;
 
     private BubbleOverlay() {
     }
 
     public static synchronized boolean enqueue(BubbleSpec spec) {
+        return enqueue(spec, false);
+    }
+
+    public static synchronized boolean enqueue(BubbleSpec spec, boolean serverSourced) {
         if (MinecraftClient.getInstance().world == null) {
             return false;
         }
@@ -55,10 +69,50 @@ public final class BubbleOverlay {
             ACTIVE.removeIf(active -> active.spec().id().equals(spec.id()));
             PENDING.removeIf(queued -> queued.spec().id().equals(spec.id()));
         }
-        PENDING.add(new QueuedBubble(spec, sequence++));
+        PENDING.add(new QueuedBubble(spec, sequence++, serverSourced));
         PENDING.sort(Comparator.comparingInt((QueuedBubble queued) -> queued.spec().priority()).reversed()
                 .thenComparingLong(QueuedBubble::sequence));
         return true;
+    }
+
+    public static synchronized boolean handleMouseClick(
+            double mouseX, double mouseY, int button, int screenWidth, int screenHeight,
+            BubbleSpec.RenderLayer layer) {
+        if (button != 0 || MinecraftClient.getInstance().world == null
+                || MinecraftClient.getInstance().currentScreen == null) {
+            return false;
+        }
+
+        MinecraftClient minecraft = MinecraftClient.getInstance();
+        long now = animationNow(minecraft.isPaused());
+        List<ActiveBubble> visible = snapshot(now, minecraft.textRenderer, screenWidth, screenHeight);
+        if (layer != null) {
+            visible = visible.stream().filter(active -> active.spec().renderLayer() == layer).toList();
+        }
+        List<RenderBubble> placements = buildPlacements(visible, minecraft.textRenderer, screenWidth, screenHeight);
+        placements.sort(Comparator.comparingInt((RenderBubble bubble) -> bubble.active().spec().priority())
+                .thenComparingLong(bubble -> bubble.active().sequence()));
+        for (int index = placements.size() - 1; index >= 0; index--) {
+            RenderBubble placement = placements.get(index);
+            double localX = (mouseX - placement.targetX()) / placement.active().spec().scale();
+            double localY = (mouseY - placement.targetY()) / placement.active().spec().scale();
+            for (ControlPlacement control : placement.layout().controls()) {
+                if (!control.contains(localX, localY) || !control.control().enabled()) continue;
+                BubbleClientClickEvent event = new BubbleClientClickEvent(placement.active().spec(), control.control());
+                BubbleKubeJSBindings.dispatchClick(event);
+                if (event.isCanceled()) return true;
+                pressedBubbleId = placement.active().spec().id();
+                pressedControlId = control.control().id();
+                pressedUntil = System.nanoTime() + 150_000_000L;
+                if (placement.active().serverSourced() && minecraft.getNetworkHandler() != null) {
+                    BubbleNetwork.sendClickToServer(placement.active().spec().id(), control.control().id());
+                } else if (control.control().closeOnPress()) {
+                    requestRemoval(placement.active().spec().id(), now);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean requestRemoval(String id, long now) {
@@ -76,6 +130,9 @@ public final class BubbleOverlay {
     public static synchronized void clear() {
         ACTIVE.clear();
         PENDING.clear();
+        pressedBubbleId = "";
+        pressedControlId = "";
+        pressedUntil = 0L;
         logicalNow = 0L;
         wallClockNow = 0L;
         clockInitialized = false;
@@ -195,7 +252,7 @@ public final class BubbleOverlay {
         do {
             promoted = false;
             for (QueuedBubble queued : List.copyOf(PENDING)) {
-                ActiveBubble candidate = new ActiveBubble(queued.spec(), now, queued.sequence());
+                ActiveBubble candidate = new ActiveBubble(queued.spec(), now, queued.sequence(), queued.serverSourced());
                 List<ActiveBubble> trial = new ArrayList<>(ACTIVE);
                 trial.add(candidate);
                 trial.sort(Comparator.comparingInt((ActiveBubble active) -> active.spec().priority()).reversed()
@@ -384,8 +441,74 @@ public final class BubbleOverlay {
                 textY += spec.lineSpacing();
             }
         }
+        renderControls(MinecraftClient.getInstance(), context, textRenderer, spec, layout, alpha, targetX, targetY);
         context.draw();
         context.getMatrices().pop();
+    }
+
+    private static void renderControls(
+            MinecraftClient minecraft, DrawContext context, TextRenderer textRenderer,
+            BubbleSpec spec, BubbleLayout layout, float alpha, float screenX, float screenY) {
+        if (layout.controls().isEmpty()) return;
+        boolean interactive = minecraft.currentScreen != null;
+        for (ControlPlacement placement : layout.controls()) {
+            BubbleControl control = placement.control();
+            BubbleControlStyle style = spec.controls().style(control.style());
+            BubbleControlStyle.InteractionState interaction = !control.enabled()
+                    ? BubbleControlStyle.InteractionState.DISABLED
+                    : BubbleControlStyle.InteractionState.NORMAL;
+            if (interactive) {
+                double mouseX = minecraft.mouse.getX() * minecraft.getWindow().getScaledWidth()
+                        / Math.max(1.0D, minecraft.getWindow().getWidth());
+                double mouseY = minecraft.mouse.getY() * minecraft.getWindow().getScaledHeight()
+                        / Math.max(1.0D, minecraft.getWindow().getHeight());
+                double localX = (mouseX - screenX) / spec.scale();
+                double localY = (mouseY - screenY) / spec.scale();
+                if (placement.contains(localX, localY)) {
+                    interaction = isPressed(control, spec)
+                            ? BubbleControlStyle.InteractionState.PRESSED
+                            : BubbleControlStyle.InteractionState.HOVER;
+                }
+            }
+            BubbleControlStyle.State state = style.state(interaction);
+            Identifier texture = parseResource(state.backgroundTexture());
+            boolean drawn = texture != null && textureSize(texture) != null;
+            if (drawn) {
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+                if (state.backgroundBorder() > 0) {
+                    renderNineSlice(context, texture, textureSize(texture), placement.width(), placement.height(),
+                            state.backgroundBorder(), state.backgroundGuide());
+                } else {
+                    context.drawTexture(texture, placement.x(), placement.y(), 0, 0,
+                            placement.width(), placement.height(), textureSize(texture).width(), textureSize(texture).height());
+                }
+                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            } else {
+                context.fill(placement.x(), placement.y(), placement.x() + placement.width(),
+                        placement.y() + placement.height(), withAlpha(state.backgroundColor(), alpha));
+            }
+
+            Text label = Text.literal(control.text() == null ? "" : control.text()).setStyle(
+                    Style.EMPTY.withColor(TextColor.fromRgb(state.textColor() & 0x00FFFFFF))
+                            .withBold(state.bold()).withItalic(state.italic()).withUnderline(state.underlined())
+                            .withStrikethrough(state.strikethrough()).withObfuscated(state.obfuscated()));
+            int labelWidth = Math.round(textRenderer.getWidth(label) * state.scale());
+            int labelHeight = Math.max(9, Math.round(9.0F * state.scale()));
+            int labelX = placement.x() + Math.max(0, (placement.width() - labelWidth) / 2);
+            int labelY = placement.y() + Math.max(0, (placement.height() - labelHeight) / 2);
+            context.getMatrices().push();
+            context.getMatrices().translate(labelX, labelY, 0.0F);
+            context.getMatrices().scale(state.scale(), state.scale(), 1.0F);
+            context.drawText(textRenderer, label, 0, 0, withAlpha(state.textColor(), alpha), state.shadow());
+            context.getMatrices().pop();
+        }
+    }
+
+    private static boolean isPressed(BubbleControl control, BubbleSpec spec) {
+        return System.nanoTime() < pressedUntil
+                && pressedBubbleId.equals(spec.id()) && pressedControlId.equals(control.id());
     }
 
     private static void renderNineSlice(
@@ -563,16 +686,22 @@ public final class BubbleOverlay {
         private final BubbleSpec spec;
         private final long createdAt;
         private final long sequence;
+        private final boolean serverSourced;
         private long closingAt = NOT_CLOSING;
 
-        private ActiveBubble(BubbleSpec spec, long createdAt, long sequence) {
+        private ActiveBubble(BubbleSpec spec, long createdAt, long sequence, boolean serverSourced) {
             this.spec = spec;
             this.createdAt = createdAt;
             this.sequence = sequence;
+            this.serverSourced = serverSourced;
         }
 
         private BubbleSpec spec() {
             return spec;
+        }
+
+        private boolean serverSourced() {
+            return serverSourced;
         }
 
         private long sequence() {
@@ -604,7 +733,7 @@ public final class BubbleOverlay {
         }
     }
 
-    private record QueuedBubble(BubbleSpec spec, long sequence) {
+    private record QueuedBubble(BubbleSpec spec, long sequence, boolean serverSourced) {
     }
 
     private record TextureSize(int width, int height) {
@@ -632,6 +761,8 @@ public final class BubbleOverlay {
         private final int iconSize;
         private final int textStartX;
         private final int textAreaWidth;
+        private final int bodyHeight;
+        private final List<ControlPlacement> controls;
 
         private BubbleLayout(
                 List<StyledLine> lines,
@@ -640,7 +771,9 @@ public final class BubbleOverlay {
                 float scale,
                 int iconSize,
                 int textStartX,
-                int textAreaWidth) {
+                int textAreaWidth,
+                int bodyHeight,
+                List<ControlPlacement> controls) {
             this.lines = lines;
             this.width = width;
             this.height = height;
@@ -649,6 +782,8 @@ public final class BubbleOverlay {
             this.iconSize = iconSize;
             this.textStartX = textStartX;
             this.textAreaWidth = textAreaWidth;
+            this.bodyHeight = bodyHeight;
+            this.controls = List.copyOf(controls);
         }
 
         private List<StyledLine> lines() { return lines; }
@@ -659,6 +794,7 @@ public final class BubbleOverlay {
         private int iconSize() { return iconSize; }
         private int textStartX() { return textStartX; }
         private int textAreaWidth() { return textAreaWidth; }
+        private List<ControlPlacement> controls() { return controls; }
 
         private static BubbleLayout create(TextRenderer textRenderer, BubbleSpec spec, int screenWidth, boolean hasIcon) {
             int maxWidth = Math.min(spec.maxWidth(), Math.max(40, screenWidth - SCREEN_MARGIN * 2));
@@ -668,17 +804,107 @@ public final class BubbleOverlay {
                     : Math.max(1, maxWidth - spec.padding() * 2 - iconWidth);
             List<StyledLine> lines = layoutText(textRenderer, spec, contentWidth);
             int measuredWidth = lines.stream().mapToInt(line -> line.width(textRenderer)).max().orElse(0);
+            int controlsWidth = controlsWidth(textRenderer, spec, maxWidth);
             int width = spec.width() > 0
                     ? spec.width()
-                    : autoWidth(measuredWidth, spec.padding(), iconWidth, maxWidth, spec.scale());
+                    : Math.max(autoWidth(measuredWidth, spec.padding(), iconWidth, maxWidth, spec.scale()),
+                    Math.min(maxWidth, controlsWidth + spec.padding() * 2));
             int lineSpacingHeight = Math.max(0, lines.size() - 1) * spec.lineSpacing();
-            int minimumHeight = Math.max(Math.max(9, lines.stream().mapToInt(line -> line.height(textRenderer)).sum()), hasIcon ? spec.iconSize() : 0)
-                    + spec.padding() * 2 + lineSpacingHeight;
+            int bodyHeight = Math.max(Math.max(9, lines.stream().mapToInt(line -> line.height(textRenderer)).sum()
+                    + lineSpacingHeight), hasIcon ? spec.iconSize() : 0);
+            List<ControlPlacement> controls = layoutControls(textRenderer, spec, width, bodyHeight);
+            int controlsHeight = controls.isEmpty() ? 0
+                    : controls.stream().mapToInt(control -> control.y() + control.height()).max().orElse(0)
+                    - (spec.padding() + bodyHeight);
+            int minimumHeight = spec.padding() * 2 + bodyHeight + controlsHeight;
             int height = spec.height() > 0 ? Math.max(spec.height(), minimumHeight) : minimumHeight;
             int textStartX = spec.padding() + iconWidth;
             int textAreaWidth = Math.max(1, width - spec.padding() - textStartX);
             return new BubbleLayout(lines, width, height, spec.scale(), hasIcon ? spec.iconSize() : 0,
-                    textStartX, textAreaWidth);
+                    textStartX, textAreaWidth, bodyHeight, controls);
+        }
+
+        private static int controlsWidth(TextRenderer textRenderer, BubbleSpec spec, int maxWidth) {
+            if (spec.controls().isEmpty()) return 0;
+            if (spec.controls().layout() == BubbleControls.Layout.VERTICAL) {
+                return spec.controls().items().stream()
+                        .mapToInt(control -> controlWidth(textRenderer, spec.controls(), control)).max().orElse(0);
+            }
+            int width = 0;
+            for (int index = 0; index < spec.controls().items().size(); index++) {
+                if (index > 0) width += spec.controls().gap();
+                width += controlWidth(textRenderer, spec.controls(), spec.controls().items().get(index));
+            }
+            return Math.min(maxWidth, width);
+        }
+
+        private static List<ControlPlacement> layoutControls(
+                TextRenderer textRenderer, BubbleSpec spec, int width, int bodyHeight) {
+            if (spec.controls().isEmpty()) return List.of();
+            int available = Math.max(1, width - spec.padding() * 2);
+            List<List<ControlSize>> rows = new ArrayList<>();
+            List<ControlSize> row = new ArrayList<>();
+            if (spec.controls().layout() == BubbleControls.Layout.VERTICAL) {
+                for (BubbleControl control : spec.controls().items()) {
+                    rows.add(List.of(new ControlSize(control,
+                            Math.min(available, controlWidth(textRenderer, spec.controls(), control)),
+                            controlHeight(spec.controls(), control))));
+                }
+            } else {
+                int rowWidth = 0;
+                for (BubbleControl control : spec.controls().items()) {
+                    int itemWidth = Math.min(available, controlWidth(textRenderer, spec.controls(), control));
+                    int required = row.isEmpty() ? itemWidth : rowWidth + spec.controls().gap() + itemWidth;
+                    if (!row.isEmpty() && required > available) {
+                        rows.add(row);
+                        row = new ArrayList<>();
+                        rowWidth = 0;
+                    }
+                    row.add(new ControlSize(control, itemWidth, controlHeight(spec.controls(), control)));
+                    rowWidth = row.size() == 1 ? itemWidth : rowWidth + spec.controls().gap() + itemWidth;
+                }
+                if (!row.isEmpty()) rows.add(row);
+            }
+
+            List<ControlPlacement> result = new ArrayList<>();
+            int y = spec.padding() + bodyHeight + (rows.isEmpty() ? 0 : spec.controls().gap());
+            for (List<ControlSize> controls : rows) {
+                int rowWidth = controls.stream().mapToInt(ControlSize::width).sum()
+                        + Math.max(0, controls.size() - 1) * spec.controls().gap();
+                int x = switch (spec.controls().alignment()) {
+                    case LEFT -> spec.padding();
+                    case CENTER -> spec.padding() + Math.max(0, (available - rowWidth) / 2);
+                    case RIGHT -> spec.padding() + Math.max(0, available - rowWidth);
+                };
+                int rowHeight = controls.stream().mapToInt(ControlSize::height).max().orElse(0);
+                for (ControlSize control : controls) {
+                    result.add(new ControlPlacement(control.control(), x, y, control.width(), control.height()));
+                    x += control.width() + spec.controls().gap();
+                }
+                y += rowHeight + spec.controls().gap();
+            }
+            return result;
+        }
+
+        private static int controlWidth(TextRenderer textRenderer, BubbleControls controls, BubbleControl control) {
+            BubbleControlStyle.State state = controls.style(control.style()).normal();
+            int textWidth = Math.round(textRenderer.getWidth(controlText(control.text(), state)) * state.scale());
+            return control.width() > 0 ? control.width() : Math.max(40, textWidth + state.padding() * 2);
+        }
+
+        private static int controlHeight(BubbleControls controls, BubbleControl control) {
+            BubbleControlStyle.State state = controls.style(control.style()).normal();
+            int automatic = Math.max(BubbleControl.DEFAULT_HEIGHT,
+                    Math.round(9.0F * state.scale()) + state.padding() * 2);
+            return control.height() > 0 ? control.height() : automatic;
+        }
+
+        private static Text controlText(String value, BubbleControlStyle.State state) {
+            return Text.literal(value == null ? "" : value).setStyle(
+                    Style.EMPTY.withColor(TextColor.fromRgb(state.textColor() & 0x00FFFFFF))
+                            .withBold(state.bold()).withItalic(state.italic())
+                            .withUnderline(state.underlined()).withStrikethrough(state.strikethrough())
+                            .withObfuscated(state.obfuscated()));
         }
 
         private static List<StyledLine> layoutText(TextRenderer renderer, BubbleSpec spec, int contentWidth) {
@@ -796,5 +1022,38 @@ public final class BubbleOverlay {
     }
 
     private record StyledRun(BubbleSpec.TextPart part, Text text) {
+    }
+
+    private record ControlSize(BubbleControl control, int width, int height) {
+    }
+
+    private record ControlPlacement(BubbleControl control, int x, int y, int width, int height) {
+        private boolean contains(double localX, double localY) {
+            return localX >= x && localX < x + width && localY >= y && localY < y + height;
+        }
+    }
+
+    private record RenderBubble(
+            ActiveBubble active,
+            BubbleLayout layout,
+            ResolvedIcon icon,
+            int stackOffset,
+            float targetX,
+            float targetY) {
+    }
+
+    private static List<RenderBubble> buildPlacements(
+            List<ActiveBubble> bubbles, TextRenderer textRenderer, int screenWidth, int screenHeight) {
+        EnumMap<BubbleSpec.Anchor, Integer> stackOffsets = new EnumMap<>(BubbleSpec.Anchor.class);
+        List<RenderBubble> placements = new ArrayList<>(bubbles.size());
+        for (ActiveBubble active : bubbles) {
+            ResolvedIcon icon = resolveIcon(active.spec());
+            BubbleLayout layout = BubbleLayout.create(textRenderer, active.spec(), screenWidth, !icon.isEmpty());
+            int stackOffset = stackOffsets.getOrDefault(active.spec().anchor(), 0);
+            float[] target = targetPosition(active.spec(), layout, stackOffset, screenWidth, screenHeight);
+            placements.add(new RenderBubble(active, layout, icon, stackOffset, target[0], target[1]));
+            stackOffsets.put(active.spec().anchor(), stackOffset + layout.scaledHeight() + SCREEN_MARGIN);
+        }
+        return placements;
     }
 }

@@ -1,10 +1,14 @@
 package com.bubbleanyway.kubejs;
 
 import com.bubbleanyway.client.BubbleOverlay;
+import com.bubbleanyway.client.BubbleClientClickEvent;
 import com.bubbleanyway.data.BubbleSpec;
 import com.bubbleanyway.data.BubbleThemeManager;
+import java.util.function.Consumer;
 
 public final class BubbleKubeJSBindings {
+    private static volatile Consumer<BubbleKubeJSClientClickEvent> clickListener;
+
     private BubbleKubeJSBindings() {
     }
 
@@ -29,5 +33,22 @@ public final class BubbleKubeJSBindings {
 
     public static void clear() {
         BubbleOverlay.clear();
+    }
+
+    public static void onClick(Consumer<BubbleKubeJSClientClickEvent> listener) {
+        clickListener = listener;
+    }
+
+    public static void dispatchClick(BubbleClientClickEvent event) {
+        BubbleKubeJSClientClickEvent scriptEvent = new BubbleKubeJSClientClickEvent(event);
+        Consumer<BubbleKubeJSClientClickEvent> listener = clickListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.accept(scriptEvent);
+        } catch (RuntimeException exception) {
+            com.mojang.logging.LogUtils.getLogger().warn("Bubble Anyway KubeJS client click listener failed", exception);
+        }
     }
 }

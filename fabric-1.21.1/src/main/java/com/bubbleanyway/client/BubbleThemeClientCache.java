@@ -24,7 +24,7 @@ public final class BubbleThemeClientCache {
     private static final AtomicReference<Map<Identifier, JsonObject>> LOCAL_THEMES =
             new AtomicReference<>(Map.of());
     private static final Set<String> REQUESTED = new HashSet<>();
-    private static final Map<String, List<String>> PENDING = new LinkedHashMap<>();
+    private static final Map<String, List<PendingTheme>> PENDING = new LinkedHashMap<>();
     private static volatile Consumer<String> THEME_REQUESTER = ignored -> {
     };
     private static volatile boolean localThemesLoaded;
@@ -56,27 +56,31 @@ public final class BubbleThemeClientCache {
     private static void finishRequests(Map<String, String> encodedThemes) {
         for (String themeId : encodedThemes.keySet()) {
             String canonicalId = canonicalId(themeId);
-            List<String> pending;
+            List<PendingTheme> pending;
             synchronized (PENDING) {
                 REQUESTED.remove(canonicalId);
                 pending = PENDING.remove(canonicalId);
             }
             if (pending != null) {
-                for (String overridesJson : pending) {
-                    enqueue(canonicalId, overridesJson);
+                for (PendingTheme request : pending) {
+                    enqueue(canonicalId, request.overridesJson(), request.serverSourced());
                 }
             }
         }
     }
 
     public static boolean enqueue(String themeId, String overridesJson) {
+        return enqueue(themeId, overridesJson, false);
+    }
+
+    public static boolean enqueue(String themeId, String overridesJson, boolean serverSourced) {
         loadLocalThemesIfNeeded();
         if (!hasTheme(themeId)) {
-            return requestFromServer(themeId, overridesJson);
+            return requestFromServer(themeId, overridesJson, serverSourced);
         }
 
         try {
-            return BubbleOverlay.enqueue(resolve(themeId, overridesJson));
+            return BubbleOverlay.enqueue(resolve(themeId, overridesJson), serverSourced);
         } catch (RuntimeException exception) {
             LOGGER.warn("Could not show Bubble Anyway theme {}", themeId, exception);
             return false;
@@ -112,11 +116,12 @@ public final class BubbleThemeClientCache {
         localThemesLoaded = false;
     }
 
-    private static boolean requestFromServer(String themeId, String overridesJson) {
+    private static boolean requestFromServer(String themeId, String overridesJson, boolean serverSourced) {
         String canonicalId = canonicalId(themeId);
         boolean shouldRequest;
         synchronized (PENDING) {
-            PENDING.computeIfAbsent(canonicalId, ignored -> new ArrayList<>()).add(overridesJson);
+            PENDING.computeIfAbsent(canonicalId, ignored -> new ArrayList<>())
+                    .add(new PendingTheme(overridesJson, serverSourced));
             shouldRequest = REQUESTED.add(canonicalId);
         }
         if (!shouldRequest) {
@@ -151,5 +156,8 @@ public final class BubbleThemeClientCache {
     private static String canonicalId(String themeId) {
         Identifier parsed = BubbleThemeManager.parseId(themeId);
         return parsed == null ? themeId : parsed.toString();
+    }
+
+    private record PendingTheme(String overridesJson, boolean serverSourced) {
     }
 }

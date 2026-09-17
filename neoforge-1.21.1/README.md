@@ -20,6 +20,10 @@ NeoForge 1.21.1 的通用高优先级信息气泡提示模组。
 - `backgroundBorder` 大于 0 时启用九宫格背景；`backgroundGuide` 可跳过边框与中心之间的参考线像素，例如 66×66 图片使用 `backgroundBorder:8, backgroundGuide:1`
 - 支持气泡出现音效，默认使用 Minecraft 按钮音效 `minecraft:ui.button.click`
 - 支持 `priority`、`id`、`replace`；气泡会根据屏幕空间自动排队，不使用固定数量上限
+- 支持在文本下方添加多个可点击控件，支持横向/纵向布局、对齐、控件数据和按下后关闭
+- 控件支持主题样式以及 normal、hover、pressed、disabled 状态；按钮 PNG 使用与背景相同的九宫格逻辑
+- Java API 和 KubeJS 均可监听控件点击事件，并获取玩家、气泡 ID、控件 ID 和自定义数据
+- 提供 `BubbleSpec.builder()`、`BubbleControl.builder()` 和 `BubbleControls.builder()` Builder API
 
 ### 指令示例
 
@@ -50,7 +54,25 @@ PlayerEvents.loggedIn(event => {
 });
 ```
 
-服务器事件中可用的方法：`showJson(player, json)`、`showAllJson(server, json)`、`show(player, text)`、`showAll(server, text)`、`clear(player)`、`clearAll(server)`。
+服务器事件中可用的方法：`showJson(player, json)`、`showAllJson(server, json)`、`show(player, text)`、`showAll(server, text)`、`clear(player)`、`clearAll(server)`。使用 `BubbleServer.onClick(callback)` 监听服务端按钮点击，事件提供 `event.player`、`event.bubble`、`event.control` 和 `event.data`。
+
+气泡控件支持多个按钮，按钮位于文本下方：
+
+```javascript
+BubbleServer.showJson(event.player, JSON.stringify({
+  id: 'confirm_dialog',
+  text: '是否领取示例奖励？',
+  controls: {
+    layout: 'HORIZONTAL',
+    gap: 6,
+    align: 'CENTER',
+    items: [
+      {id: 'confirm', text: '领取', data: {reward: 'minecraft:diamond', count: 1}},
+      {id: 'cancel', text: '以后再说'}
+    ]
+  }
+}));
+```
 
 ### KubeJS 客户端
 

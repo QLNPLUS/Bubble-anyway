@@ -32,6 +32,6 @@ public record BubbleThemePayload(String themeId, String overridesJson) implement
     }
 
     public void handleClient() {
-        BubbleThemeClientCache.enqueue(themeId(), overridesJson());
+        BubbleThemeClientCache.enqueue(themeId(), overridesJson(), true);
     }
 }

@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_17",
   "client": [
     "ScreenRenderMixin",
+    "ParentElementMixin",
     "ToastManagerMixin",
     "AdvancementToastAccessor",
     "RecipeToastAccessor"

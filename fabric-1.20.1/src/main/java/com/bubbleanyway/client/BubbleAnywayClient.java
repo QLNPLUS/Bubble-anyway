@@ -34,7 +34,7 @@ public final class BubbleAnywayClient implements ClientModInitializer {
                 if (payload.clear()) {
                     BubbleOverlay.clear();
                 } else {
-                    BubbleOverlay.enqueue(payload.spec());
+                    BubbleOverlay.enqueue(payload.spec(), true);
                 }
             });
         });

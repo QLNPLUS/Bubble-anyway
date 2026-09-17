@@ -36,6 +36,15 @@ direct Java dependency.
   button click sound.
 - Define reusable themes so a server can send a theme ID and text instead of
   repeating every visual setting in each message.
+- Add multiple clickable controls below the text with horizontal or vertical
+  layouts, alignment, per-control data, close-on-press behavior, and theme
+  styles for normal, hover, pressed, and disabled states.
+- Expose server and client click events to Java integrations and KubeJS with
+  the player, bubble ID, control ID, and custom control data.
+- Build bubbles and controls through Java Builder APIs, while keeping compact
+  JSON forms available for commands and KubeJS scripts.
+- Scale button PNGs with the same nine-slice border and guide-pixel logic as
+  bubble backgrounds.
 - Include two built-in nine-slice backgrounds:
   `bubble_anyway:textures/gui/background.png` and
   `bubble_anyway:textures/gui/background_modern.png`.
@@ -89,7 +98,7 @@ content mods.
 | Fabric | 1.20.1 |
 | Fabric | 1.21.1 |
 
-All included targets are version `1.1.0`. Install the file matching both your
+All included targets are version `1.5.0`. Install the file matching both your
 Minecraft version and mod loader.
 
 ## Command Example

@@ -2,6 +2,7 @@ package com.bubbleanyway.network;
 
 import com.bubbleanyway.BubbleAnyway;
 import com.bubbleanyway.data.BubbleSpec;
+import com.bubbleanyway.data.BubbleThemeManager;
 import java.util.Collection;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -20,6 +21,7 @@ public final class BubbleNetwork {
 
     public static void send(Collection<ServerPlayerEntity> players, BubbleSpec spec) {
         for (ServerPlayerEntity player : players) {
+            BubbleInteractionManager.register(player, spec);
             PacketByteBuf buffer = PacketByteBufs.create();
             BubblePayload.encode(buffer, BubblePayload.show(spec));
             ServerPlayNetworking.send(player, CHANNEL, buffer);
@@ -28,6 +30,7 @@ public final class BubbleNetwork {
 
     public static void clear(Collection<ServerPlayerEntity> players) {
         for (ServerPlayerEntity player : players) {
+            BubbleInteractionManager.clear(player);
             PacketByteBuf buffer = PacketByteBufs.create();
             BubblePayload.encode(buffer, BubblePayload.clearAll());
             ServerPlayNetworking.send(player, CHANNEL, buffer);
@@ -35,7 +38,9 @@ public final class BubbleNetwork {
     }
 
     public static void sendTheme(Collection<ServerPlayerEntity> players, String themeId, String overridesJson) {
+        BubbleSpec resolved = BubbleThemeManager.resolve(themeId, overridesJson);
         for (ServerPlayerEntity player : players) {
+            BubbleInteractionManager.register(player, resolved);
             PacketByteBuf buffer = PacketByteBufs.create();
             BubbleThemePayload.encode(buffer, BubbleThemePayload.show(themeId, overridesJson));
             ServerPlayNetworking.send(player, THEME_CHANNEL, buffer);
@@ -60,5 +65,11 @@ public final class BubbleNetwork {
             BubbleThemeSyncPayload.encode(buffer, payload);
             ServerPlayNetworking.send(player, THEME_SYNC_CHANNEL, buffer);
         }
+    }
+
+    public static void sendClickToServer(String bubbleId, String controlId) {
+        PacketByteBuf buffer = PacketByteBufs.create();
+        BubbleClickPayload.encode(buffer, new BubbleClickPayload(bubbleId, controlId));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(BubbleClickPayload.CHANNEL, buffer);
     }
 }

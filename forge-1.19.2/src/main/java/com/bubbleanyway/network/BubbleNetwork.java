@@ -45,18 +45,27 @@ public final class BubbleNetwork {
                 BubbleThemeSyncPayload::encode,
                 BubbleThemeSyncPayload::decode,
                 BubbleThemeSyncPayload::handle);
+        CHANNEL.registerMessage(
+                messageId++,
+                BubbleClickPayload.class,
+                BubbleClickPayload::encode,
+                BubbleClickPayload::decode,
+                BubbleClickPayload::handle);
     }
 
     public static void send(Collection<ServerPlayer> players, BubbleSpec spec) {
         BubblePayload payload = BubblePayload.show(spec);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, spec);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
     }
 
     public static void sendTheme(Collection<ServerPlayer> players, String themeId, String overridesJson) {
         BubbleThemePayload payload = BubbleThemePayload.show(themeId, overridesJson);
+        BubbleSpec resolved = com.bubbleanyway.data.BubbleThemeManager.resolve(themeId, overridesJson);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, resolved);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
     }
@@ -82,7 +91,12 @@ public final class BubbleNetwork {
     public static void clear(Collection<ServerPlayer> players) {
         BubblePayload payload = BubblePayload.clearAll();
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.clear(player);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
+    }
+
+    public static void sendClickToServer(String bubbleId, String controlId) {
+        CHANNEL.sendToServer(BubbleClickPayload.click(bubbleId, controlId));
     }
 }

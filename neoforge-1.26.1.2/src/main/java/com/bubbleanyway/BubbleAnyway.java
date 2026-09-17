@@ -15,7 +15,6 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import net.minecraft.server.level.ServerPlayer;
-import java.util.List;
 
 @Mod(BubbleAnyway.MOD_ID)
 public final class BubbleAnyway {
@@ -31,9 +30,9 @@ public final class BubbleAnyway {
                 BubbleThemeManager.registerReloadListener(event));
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) ->
                 BubbleNetwork.syncThemes(event.getServer().getPlayerList().getPlayers()));
-        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
-                BubbleNetwork.syncThemes(List.of(player));
+                com.bubbleanyway.network.BubbleInteractionManager.clear(player);
             }
         });
         BubbleThemeManager.setReloadListener(() -> {

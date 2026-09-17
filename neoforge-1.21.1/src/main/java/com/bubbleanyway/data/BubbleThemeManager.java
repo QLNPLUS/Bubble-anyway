@@ -2,6 +2,7 @@ package com.bubbleanyway.data;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -113,10 +114,97 @@ public final class BubbleThemeManager {
 
         JsonObject merged = theme.deepCopy();
         JsonObject overrides = parseObject(overridesJson, "Theme overrides");
+        JsonElement controlOverrides = overrides.remove("controlOverrides");
+        JsonElement controlsOverrideElement = overrides.remove("controls");
+        JsonObject compactControlOverrides = compactControlOverrides(controlsOverrideElement);
+        if (compactControlOverrides != null) {
+            JsonObject controlsOverride = controlsOverrideElement.getAsJsonObject();
+            JsonObject containerOverride = new JsonObject();
+            for (Map.Entry<String, JsonElement> entry : controlsOverride.entrySet()) {
+                if (isControlContainerKey(entry.getKey())) {
+                    containerOverride.add(entry.getKey(), entry.getValue().deepCopy());
+                }
+            }
+            mergeControlsObject(merged, containerOverride);
+            if (!compactControlOverrides.entrySet().isEmpty()) {
+                JsonObject combined = new JsonObject();
+                addEntries(combined, compactControlOverrides);
+                if (controlOverrides != null && controlOverrides.isJsonObject()) {
+                    addEntries(combined, controlOverrides.getAsJsonObject());
+                }
+                controlOverrides = combined;
+            }
+        } else if (controlsOverrideElement != null) {
+            overrides.add("controls", controlsOverrideElement);
+        }
         for (Map.Entry<String, JsonElement> entry : overrides.entrySet()) {
             merged.add(entry.getKey(), entry.getValue().deepCopy());
         }
+        mergeControlOverrides(merged, controlOverrides);
         return GSON.toJson(merged);
+    }
+
+    private static void mergeControlOverrides(JsonObject merged, JsonElement value) {
+        if (value == null || !value.isJsonObject()) return;
+        JsonObject controls = merged.has("controls") && merged.get("controls").isJsonObject()
+                ? merged.getAsJsonObject("controls") : new JsonObject();
+        JsonElement itemsElement = controls.get("items");
+        if (itemsElement == null) itemsElement = controls.get("controls");
+        if (itemsElement == null || !itemsElement.isJsonArray()) {
+            itemsElement = new JsonArray();
+            controls.add("items", itemsElement);
+        }
+        Map<String, JsonObject> itemsById = new LinkedHashMap<>();
+        for (JsonElement item : itemsElement.getAsJsonArray()) {
+            if (item.isJsonObject() && item.getAsJsonObject().has("id")) {
+                itemsById.put(item.getAsJsonObject().get("id").getAsString(), item.getAsJsonObject());
+            }
+        }
+        for (Map.Entry<String, JsonElement> entry : value.getAsJsonObject().entrySet()) {
+            if (!entry.getValue().isJsonObject()) continue;
+            JsonObject item = itemsById.get(entry.getKey());
+            if (item == null) {
+                item = new JsonObject();
+                item.addProperty("id", entry.getKey());
+                itemsElement.getAsJsonArray().add(item);
+                itemsById.put(entry.getKey(), item);
+            }
+            for (Map.Entry<String, JsonElement> override : entry.getValue().getAsJsonObject().entrySet()) {
+                item.add(override.getKey(), override.getValue().deepCopy());
+            }
+        }
+        merged.add("controls", controls);
+    }
+
+    private static void mergeControlsObject(JsonObject merged, JsonObject override) {
+        if (override == null || override.entrySet().isEmpty()) return;
+        JsonObject controls = merged.has("controls") && merged.get("controls").isJsonObject()
+                ? merged.getAsJsonObject("controls").deepCopy() : new JsonObject();
+        addEntries(controls, override);
+        merged.add("controls", controls);
+    }
+
+    private static JsonObject compactControlOverrides(JsonElement value) {
+        if (value == null || !value.isJsonObject()) return null;
+        JsonObject result = new JsonObject();
+        for (Map.Entry<String, JsonElement> entry : value.getAsJsonObject().entrySet()) {
+            if (!isControlContainerKey(entry.getKey()) && entry.getValue().isJsonObject()) {
+                result.add(entry.getKey(), entry.getValue().deepCopy());
+            }
+        }
+        return result;
+    }
+
+    private static boolean isControlContainerKey(String key) {
+        return key.equals("layout") || key.equals("align") || key.equals("alignment")
+                || key.equals("gap") || key.equals("styles") || key.equals("items")
+                || key.equals("controls");
+    }
+
+    private static void addEntries(JsonObject target, JsonObject source) {
+        for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
+            target.add(entry.getKey(), entry.getValue().deepCopy());
+        }
     }
 
     public static Map<String, String> snapshot() {

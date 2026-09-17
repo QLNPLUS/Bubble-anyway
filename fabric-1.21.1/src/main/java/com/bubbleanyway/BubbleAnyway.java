@@ -8,6 +8,8 @@ import com.bubbleanyway.network.BubblePayload;
 import com.bubbleanyway.network.BubbleThemeRequestPayload;
 import com.bubbleanyway.network.BubbleThemePayload;
 import com.bubbleanyway.network.BubbleThemeSyncPayload;
+import com.bubbleanyway.network.BubbleClickPayload;
+import com.bubbleanyway.network.BubbleInteractionManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -36,10 +38,14 @@ public final class BubbleAnyway implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(BubbleThemePayload.ID, BubbleThemePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(BubbleThemeSyncPayload.ID, BubbleThemeSyncPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(BubbleThemeRequestPayload.ID, BubbleThemeRequestPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(BubbleClickPayload.ID, BubbleClickPayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(BubbleThemeRequestPayload.ID, (payload, context) ->
                 context.server().execute(() -> BubbleNetwork.sendThemeDefinition(context.player(), payload.themeId())));
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-                BubbleNetwork.syncThemes(server.getPlayerManager().getPlayerList()));
+        ServerPlayNetworking.registerGlobalReceiver(BubbleClickPayload.ID, (payload, context) ->
+                context.server().execute(() -> BubbleInteractionManager.handleClick(
+                        context.player(), payload.bubbleId(), payload.controlId())));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                BubbleInteractionManager.clear(handler.player));
         ServerLifecycleEvents.SERVER_STARTED.register(current -> {
             server = current;
             BubbleNetwork.syncThemes(current.getPlayerManager().getPlayerList());

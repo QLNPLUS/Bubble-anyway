@@ -1,6 +1,7 @@
 package com.bubbleanyway.network;
 
 import com.bubbleanyway.data.BubbleSpec;
+import com.bubbleanyway.data.BubbleThemeManager;
 import java.util.Collection;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -16,12 +17,12 @@ public final class BubbleNetwork {
                 if (payload.clear()) {
                     com.bubbleanyway.client.BubbleOverlay.clear();
                 } else {
-                    com.bubbleanyway.client.BubbleOverlay.enqueue(payload.spec());
+                    com.bubbleanyway.client.BubbleOverlay.enqueue(payload.spec(), true);
                 }
             });
         }).playToClient(BubbleThemePayload.TYPE, BubbleThemePayload.STREAM_CODEC, (payload, context) ->
                 context.enqueueWork(() -> com.bubbleanyway.client.BubbleThemeClientCache.enqueue(
-                        payload.themeId(), payload.overridesJson())))
+                        payload.themeId(), payload.overridesJson(), true)))
                 .playToClient(BubbleThemeSyncPayload.TYPE, BubbleThemeSyncPayload.STREAM_CODEC, (payload, context) ->
                         context.enqueueWork(() -> {
                             if (payload.replace()) {
@@ -34,12 +35,19 @@ public final class BubbleNetwork {
                     if (context.player() instanceof ServerPlayer player) {
                         context.enqueueWork(() -> sendThemeDefinition(player, payload.themeId()));
                     }
+                })
+                .playToServer(BubbleClickPayload.TYPE, BubbleClickPayload.STREAM_CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        context.enqueueWork(() -> BubbleInteractionManager.handleClick(
+                                player, payload.bubbleId(), payload.controlId()));
+                    }
                 });
     }
 
     public static void send(Collection<ServerPlayer> players, BubbleSpec spec) {
         BubblePayload payload = BubblePayload.show(spec);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, spec);
             PacketDistributor.sendToPlayer(player, payload);
         }
     }
@@ -47,13 +55,16 @@ public final class BubbleNetwork {
     public static void clear(Collection<ServerPlayer> players) {
         BubblePayload payload = BubblePayload.clearAll();
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.clear(player);
             PacketDistributor.sendToPlayer(player, payload);
         }
     }
 
     public static void sendTheme(Collection<ServerPlayer> players, String themeId, String overridesJson) {
         BubbleThemePayload payload = BubbleThemePayload.show(themeId, overridesJson);
+        BubbleSpec resolved = BubbleThemeManager.resolve(themeId, overridesJson);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, resolved);
             PacketDistributor.sendToPlayer(player, payload);
         }
     }
@@ -74,5 +85,10 @@ public final class BubbleNetwork {
         for (ServerPlayer player : players) {
             PacketDistributor.sendToPlayer(player, payload);
         }
+    }
+
+    public static void sendClickToServer(String bubbleId, String controlId) {
+        net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(
+                BubbleClickPayload.click(bubbleId, controlId));
     }
 }

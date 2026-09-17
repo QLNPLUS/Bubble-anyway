@@ -4,6 +4,8 @@ import com.bubbleanyway.command.BubbleCommand;
 import com.bubbleanyway.data.BubbleThemeDefaults;
 import com.bubbleanyway.data.BubbleThemeManager;
 import com.bubbleanyway.network.BubbleNetwork;
+import com.bubbleanyway.network.BubbleClickPayload;
+import com.bubbleanyway.network.BubbleInteractionManager;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -34,8 +36,14 @@ public final class BubbleAnyway implements ModInitializer {
                     String themeId = buffer.readString(256);
                     server.execute(() -> BubbleNetwork.sendThemeDefinition(player, themeId));
                 });
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-                BubbleNetwork.syncThemes(server.getPlayerManager().getPlayerList()));
+        ServerPlayNetworking.registerGlobalReceiver(BubbleClickPayload.CHANNEL,
+                (server, player, handler, buffer, responseSender) -> {
+                    BubbleClickPayload payload = BubbleClickPayload.decode(buffer);
+                    server.execute(() -> BubbleInteractionManager.handleClick(
+                            player, payload.bubbleId(), payload.controlId()));
+                });
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+                BubbleInteractionManager.clear(handler.player));
         ServerLifecycleEvents.SERVER_STARTED.register(current -> {
             server = current;
             BubbleNetwork.syncThemes(current.getPlayerManager().getPlayerList());

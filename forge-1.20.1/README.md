@@ -25,6 +25,10 @@ Forge 1.20.1 的通用高优先级信息气泡提示模组。
 - 主题气泡优先读取客户端本地主题；本地不存在时才按需向服务器请求对应主题
 - 支持多段文本：标题和副标题可以分别设置颜色、字号、粗体、斜体和阴影
 - 支持 PNG 纹理图标，并让图标跟随气泡的透明度和滑入滑出动画
+- 支持在文本下方添加多个可点击控件，支持横向/纵向布局、对齐、控件数据和按下后关闭
+- 控件支持主题样式以及 normal、hover、pressed、disabled 状态；按钮 PNG 使用与背景相同的九宫格逻辑
+- Java API 和 KubeJS 均可监听控件点击事件，并获取玩家、气泡 ID、控件 ID 和自定义数据
+- 提供 `BubbleSpec.builder()`、`BubbleControl.builder()` 和 `BubbleControls.builder()` Builder API
 - 可选接管原版成就、配方解锁以及 FTB Quests Toast，开关和主题 ID 位于客户端 TOML 配置
 
 ### 指令示例

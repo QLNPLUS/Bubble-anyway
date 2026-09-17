@@ -4,8 +4,10 @@ import com.bubbleanyway.client.BubbleOverlay;
 import com.bubbleanyway.client.BubbleThemeClientCache;
 import com.bubbleanyway.data.BubbleSpec;
 import com.bubbleanyway.data.BubbleThemeManager;
+import java.util.function.Consumer;
 
 public final class BubbleKubeJSBindings {
+    private static volatile Consumer<BubbleKubeJSClientClickEvent> clickListener;
     private BubbleKubeJSBindings() {
     }
 
@@ -32,6 +34,20 @@ public final class BubbleKubeJSBindings {
 
     public static void clear() {
         BubbleOverlay.clear();
+    }
+
+    public static void onClick(Consumer<BubbleKubeJSClientClickEvent> listener) {
+        clickListener = listener;
+    }
+
+    public static void dispatchClick(com.bubbleanyway.client.BubbleClientClickEvent event) {
+        Consumer<BubbleKubeJSClientClickEvent> listener = clickListener;
+        if (listener == null) return;
+        try {
+            listener.accept(new BubbleKubeJSClientClickEvent(event));
+        } catch (RuntimeException exception) {
+            com.mojang.logging.LogUtils.getLogger().warn("Bubble Anyway KubeJS client click listener failed", exception);
+        }
     }
 
     private static String quote(String value) {
