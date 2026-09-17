@@ -1,6 +1,7 @@
 package com.bubbleanyway.network;
 
 import com.bubbleanyway.data.BubbleSpec;
+import com.bubbleanyway.data.BubbleThemeManager;
 import java.util.Collection;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceLocation;
@@ -9,7 +10,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class BubbleNetwork {
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation("bubble_anyway", "main"),
             () -> PROTOCOL_VERSION,
@@ -45,18 +46,27 @@ public final class BubbleNetwork {
                 BubbleThemeSyncPayload::encode,
                 BubbleThemeSyncPayload::decode,
                 BubbleThemeSyncPayload::handle);
+        CHANNEL.registerMessage(
+                messageId++,
+                BubbleClickPayload.class,
+                BubbleClickPayload::encode,
+                BubbleClickPayload::decode,
+                BubbleClickPayload::handle);
     }
 
     public static void send(Collection<ServerPlayer> players, BubbleSpec spec) {
         BubblePayload payload = BubblePayload.show(spec);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, spec);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
     }
 
     public static void sendTheme(Collection<ServerPlayer> players, String themeId, String overridesJson) {
         BubbleThemePayload payload = BubbleThemePayload.show(themeId, overridesJson);
+        BubbleSpec resolved = BubbleThemeManager.resolve(themeId, overridesJson);
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.register(player, resolved);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
     }
@@ -82,7 +92,12 @@ public final class BubbleNetwork {
     public static void clear(Collection<ServerPlayer> players) {
         BubblePayload payload = BubblePayload.clearAll();
         for (ServerPlayer player : players) {
+            BubbleInteractionManager.clear(player);
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), payload);
         }
+    }
+
+    public static void sendClickToServer(String bubbleId, String controlId) {
+        CHANNEL.sendToServer(BubbleClickPayload.click(bubbleId, controlId));
     }
 }

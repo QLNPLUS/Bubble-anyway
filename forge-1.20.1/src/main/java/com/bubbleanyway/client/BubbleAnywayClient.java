@@ -7,6 +7,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ToastAddEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -74,6 +75,22 @@ public final class BubbleAnywayClient {
     @SubscribeEvent
     public static void replaceToast(ToastAddEvent event) {
         BubbleToastIntegration.handle(event);
+    }
+
+    @SubscribeEvent
+    public static void screenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return;
+        }
+
+        com.bubbleanyway.data.BubbleSpec.RenderLayer layer = event.getScreen() instanceof PauseScreen
+                ? com.bubbleanyway.data.BubbleSpec.RenderLayer.ABOVE_PAUSE
+                : null;
+        if (BubbleOverlay.handleMouseClick(event.getMouseX(), event.getMouseY(), event.getButton(),
+                event.getScreen().width, event.getScreen().height, layer)) {
+            event.setCanceled(true);
+        }
     }
 
     @SubscribeEvent

@@ -1,5 +1,7 @@
 package com.bubbleanyway.kubejs;
 
+import java.util.function.Consumer;
+
 /** @deprecated Use {@link BubbleKubeJSServerApi}. */
 @Deprecated
 public final class BubbleKubeJSServerBindings {
@@ -44,5 +46,9 @@ public final class BubbleKubeJSServerBindings {
 
     public static void clearAll(Object server) {
         BubbleKubeJSServerApi.clearAll(server);
+    }
+
+    public static void onClick(Consumer<BubbleKubeJSServerClickEvent> listener) {
+        BubbleKubeJSServerApi.onClick(listener);
     }
 }

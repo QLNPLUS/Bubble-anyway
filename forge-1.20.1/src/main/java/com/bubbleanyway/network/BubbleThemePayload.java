@@ -34,7 +34,7 @@ public final class BubbleThemePayload {
 
     public static void handle(BubbleThemePayload payload, Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context context = contextSupplier.get();
-        context.enqueueWork(() -> BubbleThemeClientCache.enqueue(payload.themeId, payload.overridesJson));
+        context.enqueueWork(() -> BubbleThemeClientCache.enqueue(payload.themeId, payload.overridesJson, true));
         context.setPacketHandled(true);
     }
 

@@ -1,6 +1,7 @@
 package com.bubbleanyway.network;
 
 import com.bubbleanyway.data.BubbleSpec;
+import com.bubbleanyway.data.BubbleControls;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
@@ -34,6 +35,10 @@ public final class BubblePayload {
         buffer.writeUtf(spec.iconId(), 128);
         buffer.writeUtf(spec.iconType().name(), 32);
         buffer.writeUtf(spec.textPartsJson(), 32767);
+        buffer.writeBoolean(!spec.controls().isEmpty());
+        if (!spec.controls().isEmpty()) {
+            buffer.writeUtf(spec.controlsJson(), 32767);
+        }
         buffer.writeInt(spec.iconSize());
         buffer.writeInt(spec.iconGap());
         buffer.writeInt(spec.iconOffsetX());
@@ -87,6 +92,7 @@ public final class BubblePayload {
         String iconId = buffer.readUtf(128);
         BubbleSpec.IconType iconType = BubbleSpec.IconType.parse(buffer.readUtf(32));
         String textPartsJson = buffer.readUtf(32767);
+        String controlsJson = buffer.readBoolean() ? buffer.readUtf(32767) : "{}";
         int iconSize = buffer.readInt();
         int iconGap = buffer.readInt();
         int iconOffsetX = buffer.readInt();
@@ -132,7 +138,7 @@ public final class BubblePayload {
                 text,
                 iconId,
                 iconType,
-                BubbleSpec.parseTextPartsJson(textPartsJson),
+                 BubbleSpec.parseTextPartsJson(textPartsJson),
                 iconSize,
                 iconGap,
                 iconOffsetX,
@@ -170,8 +176,9 @@ public final class BubblePayload {
                 replace,
                 anchor,
                 animation,
-                lineSpacing,
-                remove);
+                 lineSpacing,
+                 remove,
+                 BubbleControls.fromJson(com.google.gson.JsonParser.parseString(controlsJson)));
         return show(spec.withRenderLayer(renderLayer));
     }
 
@@ -181,7 +188,7 @@ public final class BubblePayload {
             if (payload.clear) {
                 com.bubbleanyway.client.BubbleOverlay.clear();
             } else {
-                com.bubbleanyway.client.BubbleOverlay.enqueue(payload.spec);
+                com.bubbleanyway.client.BubbleOverlay.enqueueServer(payload.spec);
             }
         });
         context.setPacketHandled(true);

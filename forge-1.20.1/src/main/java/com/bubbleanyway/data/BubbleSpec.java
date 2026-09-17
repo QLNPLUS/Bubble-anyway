@@ -80,6 +80,7 @@ public final class BubbleSpec {
     private final Anchor anchor;
     private final Animation animation;
     private final RenderLayer renderLayer;
+    private final BubbleControls controls;
 
     public BubbleSpec(
             String id,
@@ -125,8 +126,8 @@ public final class BubbleSpec {
                 textColor, backgroundColor, backgroundTexture, backgroundBorder, backgroundGuide,
                 sound, soundVolume, soundPitch, x, y, width, height, maxWidth, padding, textAlignment,
                 duration, fadeIn, fadeOut, DEFAULT_SLIDE_IN, DEFAULT_SLIDE_OUT, priority, scale,
-                bold, italic, underlined, strikethrough, obfuscated, shadow, replace, anchor, animation,
-                DEFAULT_LINE_SPACING, false);
+                 bold, italic, underlined, strikethrough, obfuscated, shadow, replace, anchor, animation,
+                 DEFAULT_LINE_SPACING, false, BubbleControls.empty());
     }
 
     public BubbleSpec(
@@ -221,10 +222,64 @@ public final class BubbleSpec {
             boolean obfuscated,
             boolean shadow,
             boolean replace,
+             Anchor anchor,
+             Animation animation,
+             int lineSpacing,
+             boolean remove) {
+        this(id, text, iconId, iconType, textParts, iconSize, iconGap, iconOffsetX, iconOffsetY,
+                textOffsetX, textOffsetY, textColor, backgroundColor, backgroundTexture, backgroundBorder,
+                backgroundGuide, sound, soundVolume, soundPitch, x, y, width, height, maxWidth, padding,
+                textAlignment, duration, fadeIn, fadeOut, slideIn, slideOut, priority, scale, bold, italic,
+                underlined, strikethrough, obfuscated, shadow, replace, anchor, animation, lineSpacing,
+                remove, BubbleControls.empty());
+    }
+
+    public BubbleSpec(
+            String id,
+            String text,
+            String iconId,
+            IconType iconType,
+            List<TextPart> textParts,
+            int iconSize,
+            int iconGap,
+            int iconOffsetX,
+            int iconOffsetY,
+            int textOffsetX,
+            int textOffsetY,
+            int textColor,
+            int backgroundColor,
+            String backgroundTexture,
+            int backgroundBorder,
+            int backgroundGuide,
+            String sound,
+            float soundVolume,
+            float soundPitch,
+            int x,
+            int y,
+            int width,
+            int height,
+            int maxWidth,
+            int padding,
+            TextAlignment textAlignment,
+            int duration,
+            int fadeIn,
+            int fadeOut,
+            int slideIn,
+            int slideOut,
+            int priority,
+            float scale,
+            boolean bold,
+            boolean italic,
+            boolean underlined,
+            boolean strikethrough,
+            boolean obfuscated,
+            boolean shadow,
+            boolean replace,
             Anchor anchor,
             Animation animation,
             int lineSpacing,
-            boolean remove) {
+            boolean remove,
+            BubbleControls controls) {
         this.id = id == null || id.isBlank() ? UUID.randomUUID().toString() : id;
         this.text = text == null ? "" : text;
         this.iconId = iconId == null ? "" : iconId;
@@ -270,6 +325,7 @@ public final class BubbleSpec {
         this.anchor = anchor == null ? Anchor.CENTER_TOP : anchor;
         this.animation = animation == null ? Animation.FADE : animation;
         this.renderLayer = RenderLayer.BELOW_PAUSE;
+        this.controls = controls == null ? BubbleControls.empty() : controls;
         this.textParts = textParts == null || textParts.isEmpty()
                 ? List.of(new TextPart(this.text, "", this.textColor, 1.0F, this.bold, this.italic,
                 this.underlined, this.strikethrough, this.obfuscated, this.shadow))
@@ -322,6 +378,7 @@ public final class BubbleSpec {
         this.anchor = source.anchor;
         this.animation = source.animation;
         this.renderLayer = renderLayer == null ? RenderLayer.BELOW_PAUSE : renderLayer;
+        this.controls = source.controls;
     }
 
     public BubbleSpec withRenderLayer(RenderLayer layer) {
@@ -481,13 +538,14 @@ public final class BubbleSpec {
         boolean strikethrough = bool(object, "strikethrough", false);
         boolean obfuscated = bool(object, "obfuscated", false);
         boolean shadow = bool(object, "shadow", true);
+        BubbleControls controls = BubbleControls.fromJson(object.get("controls"));
         List<TextPart> textParts = parseTextParts(object, textColor, bold, italic, underlined,
                 strikethrough, obfuscated, shadow);
         String text = string(object, "text", string(object, "message", ""));
         if (text.isEmpty() && !textParts.isEmpty()) {
             text = textParts.stream().map(TextPart::text).reduce("", String::concat);
         }
-        if (text.isEmpty() && !remove) {
+        if (text.isEmpty() && !remove && controls.isEmpty()) {
             throw new IllegalArgumentException("Bubble config requires a non-empty 'text' or 'textParts'");
         }
 
@@ -533,9 +591,10 @@ public final class BubbleSpec {
                 shadow,
                 bool(object, "replace", true),
                 Anchor.parse(string(object, "anchor", "CENTER_TOP")),
-                Animation.parse(string(object, "animation", "FADE")),
-                integer(object, "lineSpacing", DEFAULT_LINE_SPACING),
-                remove)
+                 Animation.parse(string(object, "animation", "FADE")),
+                 integer(object, "lineSpacing", DEFAULT_LINE_SPACING),
+                 remove,
+                 controls)
                 .withRenderLayer(RenderLayer.parse(string(object, "layer", "BELOW_PAUSE")));
     }
 
@@ -575,6 +634,14 @@ public final class BubbleSpec {
                 true,
                 Anchor.CENTER_TOP,
                 Animation.FADE);
+    }
+
+    public static BubbleSpec remove(String id) {
+        return builder().id(id).remove(true).text(" ").build();
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     public static List<TextPart> parseTextPartsJson(String json) {
@@ -672,6 +739,122 @@ public final class BubbleSpec {
     public RenderLayer renderLayer() { return renderLayer; }
     public Anchor anchor() { return anchor; }
     public Animation animation() { return animation; }
+    public BubbleControls controls() { return controls; }
+    public String controlsJson() { return controls.toJson(); }
+
+    public static final class Builder {
+        private String id = "";
+        private String text = "";
+        private String iconId = "";
+        private IconType iconType = IconType.AUTO;
+        private List<TextPart> textParts = List.of();
+        private int iconSize = DEFAULT_ICON_SIZE;
+        private int iconGap = DEFAULT_ICON_GAP;
+        private int iconOffsetX = DEFAULT_ICON_OFFSET_X;
+        private int iconOffsetY = DEFAULT_ICON_OFFSET_Y;
+        private int textOffsetX = DEFAULT_TEXT_OFFSET_X;
+        private int textOffsetY = DEFAULT_TEXT_OFFSET_Y;
+        private int textColor = DEFAULT_TEXT_COLOR;
+        private int backgroundColor = DEFAULT_BACKGROUND_COLOR;
+        private String backgroundTexture = "";
+        private int backgroundBorder = DEFAULT_BACKGROUND_BORDER;
+        private int backgroundGuide = DEFAULT_BACKGROUND_GUIDE;
+        private String sound = DEFAULT_SOUND;
+        private float soundVolume = DEFAULT_SOUND_VOLUME;
+        private float soundPitch = DEFAULT_SOUND_PITCH;
+        private int x;
+        private int y;
+        private int width;
+        private int height;
+        private int maxWidth = DEFAULT_MAX_WIDTH;
+        private int padding = DEFAULT_PADDING;
+        private int lineSpacing = DEFAULT_LINE_SPACING;
+        private TextAlignment textAlignment = TextAlignment.LEFT;
+        private int duration = DEFAULT_DURATION;
+        private int fadeIn = DEFAULT_FADE_IN;
+        private int fadeOut = DEFAULT_FADE_OUT;
+        private int slideIn = DEFAULT_SLIDE_IN;
+        private int slideOut = DEFAULT_SLIDE_OUT;
+        private int priority;
+        private float scale = 1.0F;
+        private boolean bold;
+        private boolean italic;
+        private boolean underlined;
+        private boolean strikethrough;
+        private boolean obfuscated;
+        private boolean shadow = true;
+        private boolean replace = true;
+        private boolean remove;
+        private Anchor anchor = Anchor.CENTER_TOP;
+        private Animation animation = Animation.FADE;
+        private RenderLayer renderLayer = RenderLayer.BELOW_PAUSE;
+        private BubbleControls controls = BubbleControls.empty();
+
+        public Builder id(String value) { id = value; return this; }
+        public Builder text(String value) { text = value; return this; }
+        public Builder message(String value) { return text(value); }
+        public Builder icon(String value) { iconId = value; return this; }
+        public Builder iconId(String value) { return icon(value); }
+        public Builder iconType(IconType value) { iconType = value; return this; }
+        public Builder textParts(List<TextPart> value) { textParts = value == null ? List.of() : value; return this; }
+        public Builder iconSize(int value) { iconSize = value; return this; }
+        public Builder iconGap(int value) { iconGap = value; return this; }
+        public Builder iconOffset(int value, int other) { iconOffsetX = value; iconOffsetY = other; return this; }
+        public Builder textOffset(int value, int other) { textOffsetX = value; textOffsetY = other; return this; }
+        public Builder textColor(int value) { textColor = value; return this; }
+        public Builder backgroundColor(int value) { backgroundColor = value; return this; }
+        public Builder background(String value) { backgroundTexture = value; return this; }
+        public Builder backgroundTexture(String value) { return background(value); }
+        public Builder backgroundBorder(int value) { backgroundBorder = value; return this; }
+        public Builder backgroundGuide(int value) { backgroundGuide = value; return this; }
+        public Builder sound(String value) { sound = value; return this; }
+        public Builder soundVolume(float value) { soundVolume = value; return this; }
+        public Builder soundPitch(float value) { soundPitch = value; return this; }
+        public Builder position(int value, int other) { x = value; y = other; return this; }
+        public Builder x(int value) { x = value; return this; }
+        public Builder y(int value) { y = value; return this; }
+        public Builder width(int value) { width = value; return this; }
+        public Builder height(int value) { height = value; return this; }
+        public Builder maxWidth(int value) { maxWidth = value; return this; }
+        public Builder padding(int value) { padding = value; return this; }
+        public Builder lineSpacing(int value) { lineSpacing = value; return this; }
+        public Builder textAlignment(TextAlignment value) { textAlignment = value; return this; }
+        public Builder align(TextAlignment value) { return textAlignment(value); }
+        public Builder duration(int value) { duration = value; return this; }
+        public Builder fadeIn(int value) { fadeIn = value; return this; }
+        public Builder fadeOut(int value) { fadeOut = value; return this; }
+        public Builder slideIn(int value) { slideIn = value; return this; }
+        public Builder slideOut(int value) { slideOut = value; return this; }
+        public Builder priority(int value) { priority = value; return this; }
+        public Builder scale(float value) { scale = value; return this; }
+        public Builder fontSize(float value) { return scale(value); }
+        public Builder bold(boolean value) { bold = value; return this; }
+        public Builder italic(boolean value) { italic = value; return this; }
+        public Builder underlined(boolean value) { underlined = value; return this; }
+        public Builder strikethrough(boolean value) { strikethrough = value; return this; }
+        public Builder obfuscated(boolean value) { obfuscated = value; return this; }
+        public Builder shadow(boolean value) { shadow = value; return this; }
+        public Builder replace(boolean value) { replace = value; return this; }
+        public Builder remove(boolean value) { remove = value; return this; }
+        public Builder anchor(Anchor value) { anchor = value; return this; }
+        public Builder animation(Animation value) { animation = value; return this; }
+        public Builder renderLayer(RenderLayer value) { renderLayer = value; return this; }
+        public Builder layer(RenderLayer value) { return renderLayer(value); }
+        public Builder controls(BubbleControls value) { controls = value == null ? BubbleControls.empty() : value; return this; }
+
+        public BubbleSpec build() {
+            if (!remove && text.isEmpty() && textParts.isEmpty() && controls.isEmpty()) {
+                throw new IllegalArgumentException("Bubble builder requires text or textParts");
+            }
+            return new BubbleSpec(id, text, iconId, iconType, textParts, iconSize, iconGap,
+                    iconOffsetX, iconOffsetY, textOffsetX, textOffsetY, textColor, backgroundColor,
+                    backgroundTexture, backgroundBorder, backgroundGuide, sound, soundVolume, soundPitch,
+                    x, y, width, height, maxWidth, padding, textAlignment, duration, fadeIn, fadeOut,
+                    slideIn, slideOut, priority, scale, bold, italic, underlined, strikethrough,
+                    obfuscated, shadow, replace, anchor, animation, lineSpacing, remove, controls)
+                    .withRenderLayer(renderLayer);
+        }
+    }
 
     private static String string(JsonObject object, String key, String fallback) {
         JsonElement value = object.get(key);

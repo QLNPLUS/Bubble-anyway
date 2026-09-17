@@ -1,13 +1,21 @@
 package com.bubbleanyway.kubejs;
 
 import com.bubbleanyway.api.BubbleServerApi;
+import com.bubbleanyway.api.BubbleServerClickEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.function.Consumer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /** KubeJS-facing server API for showing bubbles from server scripts. */
 public final class BubbleKubeJSServerApi {
+    /**
+     * KubeJS recreates script callbacks during /reload. Keep one current callback so old Rhino
+     * functions cannot remain strongly referenced and fire again on every reload.
+     */
+    private static volatile Consumer<BubbleKubeJSServerClickEvent> clickListener;
     private BubbleKubeJSServerApi() {
     }
 
@@ -70,6 +78,24 @@ public final class BubbleKubeJSServerApi {
         MinecraftServer minecraftServer = findServer(server, 4);
         if (minecraftServer != null) {
             BubbleServerApi.clearAll(minecraftServer);
+        }
+    }
+
+    /** Registers a KubeJS-compatible callback for validated server-side control clicks. */
+    public static void onClick(Consumer<BubbleKubeJSServerClickEvent> listener) {
+        clickListener = listener;
+    }
+
+    public static void dispatchClick(BubbleServerClickEvent event) {
+        BubbleKubeJSServerClickEvent scriptEvent = new BubbleKubeJSServerClickEvent(event);
+        Consumer<BubbleKubeJSServerClickEvent> listener = clickListener;
+        if (listener == null) {
+            return;
+        }
+        try {
+            listener.accept(scriptEvent);
+        } catch (RuntimeException exception) {
+            com.mojang.logging.LogUtils.getLogger().warn("Bubble Anyway KubeJS click listener failed", exception);
         }
     }
 

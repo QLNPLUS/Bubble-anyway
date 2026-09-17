@@ -2,6 +2,11 @@
 // This runs locally on each client and does not send a server command.
 const BubbleAnyway = Java.loadClass('com.bubbleanyway.kubejs.BubbleKubeJSBindings');
 
+BubbleAnyway.onClick(event => {
+  console.info('Local bubble control clicked: '
+    + event.bubble.id + '/' + event.control.id);
+});
+
 ClientEvents.loggedIn(event => {
   // With a theme, all omitted style fields come from the local theme.
   BubbleAnyway.showJson(JSON.stringify({

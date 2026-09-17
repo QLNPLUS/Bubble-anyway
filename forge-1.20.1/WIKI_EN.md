@@ -137,6 +137,54 @@ theme definition. A theme may be partial. Missing values use the mod defaults.
 | `textParts` | array | none | Text segments with independent styles. |
 | `textStyles` | object | none | Default styles keyed by a `textParts` role. |
 
+### Controls
+
+Controls are declared in `controls.items`, so one bubble can contain multiple
+buttons. The control area uses the bubble's full width below the text. A left
+icon does not change a button's x coordinate; it only contributes to the body
+height and therefore can move the control row down.
+
+```json
+{
+  "id": "quest_confirm",
+  "text": "Claim the reward?",
+  "controls": {
+    "layout": "HORIZONTAL",
+    "gap": 6,
+    "align": "CENTER",
+    "items": [
+      {"id": "confirm", "text": "Confirm", "data": {"quest": "my_mod:first_quest"}},
+      {"id": "cancel", "text": "Cancel"}
+    ]
+  }
+}
+```
+
+`data` is arbitrary business JSON. Bubble Anyway does not interpret it and
+does not resend it in the click packet. The server obtains it from the current
+bubble definition and exposes it through Java and KubeJS click events.
+
+Theme control styles live in `controls.styles`. Each named style supports
+`normal`, `hover`, `pressed`, and `disabled` states. State fields include
+`backgroundColor`, `background`, `backgroundBorder`, `backgroundGuide`,
+`textColor`, `padding`, `fontSize`, and the usual text-style flags.
+
+To override one themed control without replacing the complete control list,
+use `controlOverrides`:
+
+```json
+{
+  "theme": "my_mod:confirm_dialog",
+  "text": "Claim the reward?",
+  "controlOverrides": {
+    "confirm": {
+      "text": "Claim",
+      "data": {"quest": "my_mod:first_quest"}
+    }
+  }
+}
+```
+
 ### Anchors
 
 ```text
@@ -356,6 +404,21 @@ com.bubbleanyway.kubejs.BubbleKubeJSBindings
 Both expose text, JSON, theme, theme override, and clear operations. The old
 `BubbleKubeJSServerBindings` name remains as a compatibility forwarding class
 where it is available.
+
+Both classes also expose `onClick(callback)`. Server callbacks receive a
+validated `BubbleServerClickEvent`; client callbacks receive a
+`BubbleClientClickEvent`. KubeJS receives a dedicated script event view, so
+standard properties work: `event.player`, `event.bubble.id`,
+`event.control.id`, and `event.data`.
+
+```javascript
+BubbleServer.onClick(event => {
+  if (event.control.id === 'confirm') {
+    event.player.tell('You clicked confirm');
+    // event.bubble, event.control, event.data
+  }
+});
+```
 
 ## Toast Integration
 

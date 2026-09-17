@@ -2,6 +2,19 @@
 // This sends directly through the mod API and does not execute /bubble.
 const BubbleServer = Java.loadClass('com.bubbleanyway.kubejs.BubbleKubeJSServerApi');
 
+BubbleServer.onClick(event => {
+  const controlId = String(event.control.id);
+  const bubbleId = String(event.bubble.id);
+
+  if (controlId === 'confirm') {
+    event.player.tell('你点击了确定按钮');
+    // event.bubble, event.control and event.data are available here.
+    console.info('Bubble control clicked: ' + bubbleId + '/' + controlId);
+  } else if (controlId === 'cancel') {
+    event.player.tell('你点击了取消按钮');
+  }
+});
+
 ServerEvents.loaded(event => {
   BubbleServer.showAllJson(event.server, JSON.stringify({
     id: 'server_loaded',
@@ -25,6 +38,19 @@ PlayerEvents.loggedIn(event => {
     animation: 'SLIDE_FROM_TOP',
     duration: 100,
     priority: 100
+  }));
+});
+
+PlayerEvents.loggedIn(event => {
+  BubbleServer.showJson(event.player, JSON.stringify({
+    id: 'confirm_example',
+    theme: 'bubble_anyway:warning',
+    text: '是否领取示例奖励？',
+    controlOverrides: {
+      confirm: {text: '领取', data: {quest: 'my_mod:first_quest'}},
+      cancel: {text: '以后再说'},
+      details: {text: '查看详情', closeOnPress: false}
+    }
   }));
 });
 

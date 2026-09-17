@@ -14,7 +14,6 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.server.ServerLifecycleHooks;
-import java.util.List;
 
 @Mod(BubbleAnyway.MOD_ID)
 public final class BubbleAnyway {
@@ -28,9 +27,9 @@ public final class BubbleAnyway {
         MinecraftForge.EVENT_BUS.addListener(BubbleCommand::register);
         MinecraftForge.EVENT_BUS.addListener((AddReloadListenerEvent event) ->
                 BubbleThemeManager.registerReloadListener(event));
-        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+        MinecraftForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
-                BubbleNetwork.syncThemes(List.of(player));
+                com.bubbleanyway.network.BubbleInteractionManager.clear(player);
             }
         });
     }

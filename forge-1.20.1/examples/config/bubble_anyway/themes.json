@@ -13,7 +13,24 @@
       "slideOut": 12,
       "duration": 100,
       "priority": 200,
-      "replace": true
+      "replace": true,
+      "controls": {
+        "layout": "HORIZONTAL",
+        "gap": 6,
+        "align": "CENTER",
+        "styles": {
+          "primary": {
+            "normal": {"backgroundColor": "#FF8A3D3D", "textColor": "#FFFFFFFF", "bold": true},
+            "hover": {"backgroundColor": "#FFB24B4B"},
+            "pressed": {"backgroundColor": "#FF642B2B"},
+            "disabled": {"backgroundColor": "#FF444444", "textColor": "#FF999999"}
+          }
+        },
+        "items": [
+          {"id": "confirm", "text": "确定", "style": "primary", "closeOnPress": true},
+          {"id": "cancel", "text": "取消", "closeOnPress": true}
+        ]
+      }
     },
     "bubble_anyway:success": {
       "textColor": "#FFFFFFFF",

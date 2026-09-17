@@ -144,6 +144,27 @@ PlayerEvents.loggedIn(event => {
 
 服务器事件中可用的方法：`showJson(player, json)`、`showAllJson(server, json)`、`show(player, text)`、`showAll(server, text)`、`showTheme(player, themeId, text)`、`showThemeJson(player, themeId, overridesJson)`、`showAllTheme(server, themeId, text)`、`showAllThemeJson(server, themeId, overridesJson)`、`clear(player)`、`clearAll(server)`。
 
+气泡控件支持多个按钮。常用场景可以直接使用控件 ID 作为键，不需要额外的 `items` 数组：
+
+```javascript
+BubbleServer.showJson(event.player, JSON.stringify({
+  id: 'confirm_dialog',
+  text: '是否领取新手奖励？',
+  controls: {
+    layout: 'HORIZONTAL',
+    align: 'CENTER',
+    gap: 6,
+    confirm: {
+      text: '确定',
+      data: { reward: 'minecraft:diamond', count: 1 }
+    },
+    cancel: { text: '取消' }
+  }
+}));
+```
+
+也可以直接写成 `controls: [{id: 'confirm', text: '确定'}]`。完整的 `controls.items` 写法仍然支持，适合需要明确控制顺序或配置多个共享样式的场景。
+
 主题调用示例：
 
 ```javascript
@@ -161,6 +182,17 @@ PlayerEvents.loggedIn(event => {
 BubbleServer.showThemeJson(event.player, 'my_mod:quest_notice', JSON.stringify({
   text: '任务已完成',
   priority: 250
+}));
+
+// 主题也支持按控件 ID 批量覆盖，并且可以加入新控件。
+BubbleServer.showJson(event.player, JSON.stringify({
+  theme: 'my_mod:confirm_dialog',
+  text: '是否领取奖励？',
+  controls: {
+    confirm: { text: '领取', data: { quest: 'my_mod:first_quest' } },
+    cancel: { text: '以后再说' },
+    details: { text: '查看详情', closeOnPress: false }
+  }
 }));
 ```
 

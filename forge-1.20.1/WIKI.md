@@ -122,6 +122,86 @@ BubbleSpec 默认值 < 主题定义 < 当前气泡 JSON
 | textParts | 数组 | 无 | 多个文本片段对象 | 支持多行、每段独立颜色、字号、粗体、斜体、下划线、删除线、乱码和阴影。存在时优先用于绘制文本。 |
 | textStyles | 对象 | 无 | role 到样式对象的映射 | 为 textParts 中的 role 提供默认样式，例如 title、subtitle。当前片段字段优先于角色样式。 |
 
+### 控件
+
+控件支持多个按钮。控件区域位于文本下方并使用气泡的完整宽度；是否有左侧 icon 不会改变按钮的 x 坐标，icon 只会参与正文高度计算并影响按钮的 y 起点。
+
+最短写法是直接使用控件 ID 作为键。`layout`、`gap` 和 `align` 仍然可以放在同一个对象中：
+
+~~~json
+{
+  "id": "quest_confirm",
+  "text": "是否领取奖励？",
+  "controls": {
+    "layout": "HORIZONTAL",
+    "gap": 6,
+    "align": "CENTER",
+    "confirm": {"text": "确定", "data": {"quest": "my_mod:first_quest"}},
+    "cancel": {"text": "取消"}
+  }
+}
+~~~
+
+也可以使用数组写法 `"controls": [{"id": "confirm", "text": "确定"}]`。需要为控件配置样式时，使用下面的完整对象写法。
+
+~~~json
+{
+  "id": "quest_confirm",
+  "text": "是否领取奖励？",
+  "controls": {
+    "layout": "HORIZONTAL",
+    "gap": 6,
+    "align": "CENTER",
+    "items": [
+      {"id": "confirm", "text": "确定", "data": {"quest": "my_mod:first_quest"}},
+      {"id": "cancel", "text": "取消", "closeOnPress": true}
+    ]
+  }
+}
+~~~
+
+`data` 是控件携带的业务 JSON。Bubble Anyway 不解释它，也不会在点击包中重复发送；服务端会根据当前气泡重新取得它，并通过 Java/KubeJS 点击事件暴露。
+
+控件主题可以放进主题 JSON 的 `controls.styles`。每个样式支持 `normal`、`hover`、`pressed`、`disabled` 状态，状态中可设置 `backgroundColor`、`background`、`backgroundBorder`、`backgroundGuide`、`textColor`、`padding`、`fontSize`、`bold`、`italic`、`underlined`、`strikethrough`、`obfuscated` 和 `shadow`。控件材质和气泡背景使用相同的绘制逻辑：不填写 `backgroundBorder` 时直接缩放，填写 `backgroundBorder` 后使用九宫格；`backgroundGuide` 是可选的引导像素宽度。
+
+~~~json
+{
+  "controls": {
+    "styles": {
+      "primary": {
+        "normal": {"background": "my_mod:textures/gui/button.png", "backgroundBorder": 4, "textColor": "#FFFFFFFF", "bold": true},
+        "hover": {"background": "my_mod:textures/gui/button_hover.png"},
+        "pressed": {"backgroundColor": "#FF1E6840"},
+        "disabled": {"backgroundColor": "#FF404040", "textColor": "#FF999999"}
+      }
+    },
+    "items": [{"id": "confirm", "text": "确定", "style": "primary"}]
+  }
+}
+~~~
+
+主题调用时，可以使用显式的 `controlOverrides` 覆盖主题中的控件。它不是单控件限制，可以同时写多个控件；如果 ID 在主题中不存在，也会作为新控件加入：
+
+~~~json
+{
+  "theme": "my_mod:confirm_dialog",
+  "text": "是否领取奖励？",
+  "controlOverrides": {
+    "confirm": {
+      "text": "领取",
+      "data": {"quest": "my_mod:first_quest"}
+    },
+    "cancel": {
+      "text": "以后再说"
+    },
+    "details": {
+      "text": "查看详情",
+      "closeOnPress": false
+    }
+  }
+}
+~~~
+
 ### 颜色格式
 
 ~~~json
@@ -558,6 +638,7 @@ BubbleServer.showThemeJson(event.player, 'my_mod:quest_notice', JSON.stringify({
 | showAllThemeJson(server, themeId, overridesJson) | 向所有玩家发送主题气泡，并覆盖指定字段。 |
 | clear(player) | 清除一个玩家的气泡。 |
 | clearAll(server) | 清除所有玩家的气泡。 |
+| onClick(callback) | 注册服务端控件点击回调；KubeJS 中可用 `event.tell(message)` 回复玩家，也可调用 `getPlayer()`、`getBubble()`、`getControl()`、`getBubbleId()`、`getControlId()` 和 `getData()`。其中 `getPlayer()` 是 Java 的 `ServerPlayer` 对象。 |
 
 兼容旧名称：
 
@@ -625,6 +706,7 @@ BubbleAnyway.showJson(JSON.stringify({
 | showTheme(themeId, text) | 显示本地主题气泡。 |
 | showThemeJson(themeId, overridesJson) | 显示本地主题气泡并覆盖字段。 |
 | clear() | 清除当前客户端的所有气泡。 |
+| onClick(callback) | 注册客户端可见控件点击回调；支持标准 KubeJS 写法 `event.player`、`event.bubble.id`、`event.control.id` 和 `event.data`。 |
 
 ## Java 服务端 API
 
@@ -652,6 +734,36 @@ showAllThemeJson(MinecraftServer server, String themeId, String overridesJson)
 clear(ServerPlayer player)
 clear(Collection<? extends ServerPlayer> players)
 clearAll(MinecraftServer server)
+~~~
+
+控件 Builder 示例：
+
+~~~java
+BubbleSpec spec = BubbleSpec.builder()
+        .id("quest_confirm")
+        .text("是否领取这个任务？")
+        .controls(BubbleControls.builder()
+                .layout(BubbleControls.Layout.HORIZONTAL)
+                .gap(6)
+                .align(BubbleControls.Align.CENTER)
+                .add(BubbleControl.builder("confirm")
+                        .text("确定")
+                        .data("{\"quest\":\"my_mod:first_quest\"}")
+                        .build())
+                .add(BubbleControl.button("cancel", "取消"))
+                .build())
+        .build();
+BubbleServerApi.show(player, spec);
+~~~
+
+Java 服务端事件：
+
+~~~java
+MinecraftForge.EVENT_BUS.addListener((BubbleServerClickEvent event) -> {
+    if (event.getControlId().equals("confirm")) {
+        // event.getPlayer(), event.getBubble(), event.getControl(), event.getData()
+    }
+});
 ~~~
 
 ## 网络行为
