@@ -17,6 +17,11 @@
 - Fixed recipe unlock Toasts so their title and description use the selected Minecraft language.
 - Updated all supported loader builds to version 1.3.0.
 
+## 1.2.1
+
+- Fixed NeoForge 26.1.2 GUI-layer rendering so bubbles and converted advancement Toasts are visible during normal gameplay.
+- Improved diagnostics for Toast interception, theme resolution, queue admission, and overlay rendering.
+
 ## 1.2.0
 
 - Synchronized pause-screen render layers across the multi-loader builds.
